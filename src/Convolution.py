@@ -20,13 +20,12 @@ class Convolution(tf.keras.layers.Layer):
 
     def call(self, x, training):
 
-        x = self.dropout(x, training=training)
-
         residual = self.dense(self.flatten(x, training=training))
 
         for conv_layer in self.conv_layers:
             x = conv_layer(x, training=training)
         x = self.flatten(x, training=training)
         x = self.dense(x, training=training)
+        x = self.dropout(x, training=training)
 
         return residual + x  # (batch_size, input_seq_len, d_model)

@@ -28,12 +28,13 @@ class ConvolutionOutput(tf.keras.layers.Layer):
         self.dropout = tf.keras.layers.Dropout(rate)
 
     def call(self, x, training):
-        x = self.dropout(x, training=training)
 
         x = self.dense(x, training=training)
         x = self.reshape(x, training=training)
         out1 = x
         for conv_layer in self.conv_layers:
             x = conv_layer(x, training=training)
+
+        x = self.dropout(x, training=training)
 
         return out1 + x  # target_shape

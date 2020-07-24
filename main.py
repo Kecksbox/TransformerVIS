@@ -72,10 +72,12 @@ model = Model(
     d_model=5,
     d_latent=5,
     dff=20,
+    num_layers=4,
     num_heads=5,
+    max_length=5,
 )
 
-# model.train(train_examples, 10000)
+# model.train(train_examples, 1000)
 
 result, latent, attention_weights = model.evaluate(tf.constant(
     [
@@ -84,3 +86,5 @@ result, latent, attention_weights = model.evaluate(tf.constant(
     , tf.float32))
 
 print(result)
+print(latent)
+print(attention_weights)
