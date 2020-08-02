@@ -19,8 +19,9 @@ class InputPipeline:
         return tf.size(x) <= self.max_length
 
     def process(self, dataset):
-        dataset.filter(self.filter_max_length)
-        train_examples = dataset.map(self.pre_process_internal, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        train_examples = dataset.cache()
+        train_examples = train_examples.map(self.pre_process_internal, num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        train_examples.filter(self.filter_max_length)
         train_dataset = train_examples.cache()
         train_dataset = train_dataset.shuffle(self.BUFFER_SIZE).padded_batch(
             self.BATCH_SIZE,

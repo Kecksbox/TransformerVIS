@@ -4,10 +4,13 @@ import tensorflow as tf
 
 from src.Masks import create_masks
 
+from src.Utilities.GameOfLife import createTestSet, show
+
 
 class Trainer:
-    def __init__(self, transformer, beta_1=0.9, beta_2=0.98, epsilon=1e-9, warmup_steps=4000):
+    def __init__(self, transformer, PAD_TOKEN=0, beta_1=0.9, beta_2=0.98, epsilon=1e-9, warmup_steps=4000):
         self.transformer = transformer
+        self.PAD_TOKEN = PAD_TOKEN
         self.learningRate = CustomSchedule(transformer.d_model, warmup_steps)
         self.optimizer = tf.keras.optimizers.Adam(self.learningRate, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon)
         self.load_latest_checkpoint()
@@ -28,7 +31,7 @@ class Trainer:
         tar_inp = tar[:, :-1]
         tar_real = tar[:, 1:]
 
-        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp)
+        enc_padding_mask, combined_mask, dec_padding_mask = create_masks(inp, tar_inp, self.PAD_TOKEN)
 
         with tf.GradientTape() as tape:
             predictions, _, _ = self.transformer(inp, tar_inp,
@@ -73,13 +76,23 @@ class Trainer:
             """
 
     def update(self, tar_real, predictions, tape):
-        loss = loss_function(tar_real, predictions)
+        loss = self.loss_function(tar_real, predictions)
 
         gradients = tape.gradient(loss, self.transformer.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.transformer.trainable_variables))
 
         train_loss(loss)
         train_accuracy.update_state(tar_real, predictions)
+
+    def loss_function(self, real, pred):
+        mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, self.PAD_TOKEN), 5))
+
+        loss_ = loss_object(real, pred)
+
+        mask = tf.cast(mask, dtype=loss_.dtype)
+        loss_ *= mask
+
+        return tf.reduce_sum(loss_)
 
 
 class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
@@ -97,16 +110,6 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
         return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
 
-
-def loss_function(real, pred):
-    mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, 0), 5))
-
-    loss_ = loss_object(real, pred)
-
-    mask = tf.cast(mask, dtype=loss_.dtype)
-    loss_ *= mask
-
-    return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
 
 
 loss_object = tf.keras.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)

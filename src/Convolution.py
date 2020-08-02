@@ -1,31 +1,52 @@
+import math
+import operator
+from functools import reduce
+
 import tensorflow as tf
 
+from src.GRUGate import GRUGate
+
+
 class Convolution(tf.keras.layers.Layer):
-    def __init__(self, input_shape, num_layers, d_model, rate=0.1):
+    def __init__(self, convolutions, d_model, rate=0.1):
         super(Convolution, self).__init__()
 
-        self.d_model = d_model
-        self.num_layers = num_layers
-
-        self.conv_layers = [
-            tf.keras.layers.TimeDistributed(tf.keras.layers.Conv3D(filters=10, kernel_size=1, strides=1, activation='relu', input_shape=input_shape)),
-            tf.keras.layers.TimeDistributed(tf.keras.layers.Conv3D(filters=2, kernel_size=1, strides=1, activation='relu'))
-        ]
-
+        self.flatten_r = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
         self.flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
 
-        self.dense = tf.keras.layers.Dense(d_model, activation=None)
+        self.dense_r = tf.keras.layers.Dense(d_model, activation=None)
+        self.dense = tf.keras.layers.Dense(d_model, activation='relu')
+
+        self.conv_layers = []
+        for conv in convolutions:
+            self.conv_layers.append(
+                tf.keras.layers.TimeDistributed(
+                    tf.keras.layers.Conv3D(
+                        filters=conv[0],
+                        kernel_size=conv[1],
+                        strides=conv[2],
+                        activation=conv[3],
+                    )
+                )
+            )
+
+        self.layernorm = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+
+        self.gru = GRUGate(d_model)
 
         self.dropout = tf.keras.layers.Dropout(rate)
 
     def call(self, x, training):
+        residual = self.dense_r(self.flatten_r(x, training=training))
 
-        residual = self.dense(self.flatten(x, training=training))
+        inp = self.layernorm(x)
 
+        convolution = inp
         for conv_layer in self.conv_layers:
-            x = conv_layer(x, training=training)
-        x = self.flatten(x, training=training)
-        x = self.dense(x, training=training)
-        x = self.dropout(x, training=training)
+            convolution = conv_layer(convolution, training=training)
+        out = self.dense(self.flatten(convolution, training=training), training=training)
 
-        return residual + x  # (batch_size, input_seq_len, d_model)
+        out = self.gru(residual, out)
+        out = self.dropout(out, training=training)
+
+        return out  # (batch_size, input_seq_len, d_model)

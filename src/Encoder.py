@@ -28,25 +28,21 @@ def positional_encoding(position, d_model):
 
 
 class Encoder(tf.keras.layers.Layer):
-    def __init__(self, num_layers, d_model, d_latent, num_heads, dff,
-                 maximum_position_encoding, rate=0.1):
+    def __init__(self, d_model, encoder_specs, num_heads, maximum_position_encoding, rate=0.1):
         super(Encoder, self).__init__()
 
         self.d_model = d_model
-        self.num_layers = num_layers
 
         self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
 
-        self.enc_layers = []
-        d_diff = d_model - d_latent
-        d_diff_step = math.floor(d_diff / num_layers)
-        for i in range(num_layers):
-            calc_heads = math.floor(d_model / self.d_model * num_heads)
-            if i == num_layers - 1:
-                self.enc_layers.append(EncoderLayer(d_model, d_latent, calc_heads, dff, rate))
-            else:
-                self.enc_layers.append(EncoderLayer(d_model, d_model - d_diff_step, calc_heads, dff, rate))
-            d_model -= d_diff_step
+        self.num_layers = encoder_specs.__len__()
+        self.enc_layers = [None] * self.num_layers
+        for i in range(self.num_layers):
+            spec = encoder_specs[i]
+            inp = d_model
+            if i != 0:
+                inp = encoder_specs[i - 1][1]
+            self.enc_layers[i] = EncoderLayer(inp, num_heads, spec[0], spec[1], rate)
 
         self.dropout = tf.keras.layers.Dropout(rate)
 

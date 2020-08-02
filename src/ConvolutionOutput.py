@@ -1,40 +1,56 @@
+import tensorflow as tf
+
 import operator
 from functools import reduce
 
-import tensorflow as tf
+from src.GRUGate import GRUGate
 
 
 class ConvolutionOutput(tf.keras.layers.Layer):
-    def __init__(self, target_shape, num_layers, d_model, rate=0.1):
+    def __init__(self, convolutions, target_shape, voxel_shape, rate=0.1):
         super(ConvolutionOutput, self).__init__()
 
-        self.d_model = d_model
-        self.num_layers = num_layers
+        self.conv_layers = []
+        for conv in convolutions:
+            self.conv_layers.append(
+                tf.keras.layers.TimeDistributed(
+                    tf.keras.layers.Conv3DTranspose(
+                        filters=conv[0],
+                        kernel_size=conv[1],
+                        strides=conv[2],
+                        activation=conv[3],
+                        # padding='same'
+                    )
+                )
+            )
 
-        self.conv_layers = [
-            tf.keras.layers.TimeDistributed(
-                tf.keras.layers.Conv3DTranspose(filters=10, kernel_size=1, strides=1, padding='same',
-                                                activation='relu')),
-            tf.keras.layers.TimeDistributed(
-                tf.keras.layers.Conv3DTranspose(filters=2, kernel_size=1, strides=1, activation='relu'))
-        ]
+        self.flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
 
         self.reshape = tf.keras.layers.TimeDistributed(
             tf.keras.layers.Reshape(target_shape=target_shape))  # shape before flattend in the input convolution
+        self.reshape_out = tf.keras.layers.TimeDistributed(
+            tf.keras.layers.Reshape(target_shape=voxel_shape))  # shape when fed into the network
 
+        self.dense_r = tf.keras.layers.Dense(
+            reduce(operator.mul, voxel_shape, 1), activation=None)
         self.dense = tf.keras.layers.Dense(
-            reduce(operator.mul, target_shape, 1))  # shape when flattend in the input convolution
+            reduce(operator.mul, target_shape, 1), activation=None)  # shape when flattend in the input convolution
+
+        self.gru = GRUGate(reduce(operator.mul, voxel_shape, 1))
 
         self.dropout = tf.keras.layers.Dropout(rate)
 
     def call(self, x, training):
+        residual = self.dense_r(x)
 
-        x = self.dense(x, training=training)
-        x = self.reshape(x, training=training)
-        out1 = x
+        convolution = self.dense(x, training=training)
+        convolution = self.reshape(convolution, training=training)
+
         for conv_layer in self.conv_layers:
-            x = conv_layer(x, training=training)
+            convolution = conv_layer(convolution, training=training)
 
-        x = self.dropout(x, training=training)
+        out = self.reshape_out(residual + self.flatten(convolution), training=training)
 
-        return out1 + x  # target_shape
+        out = self.dropout(out, training=training)
+
+        return out  # target_shape
