@@ -4,7 +4,8 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 import numpy
-from src.Utilities.GameOfLife import createTestSet, show
+import json
+from src.Utilities.GameOfLife2 import createTestSet, show
 
 from src.Model import Model
 
@@ -64,45 +65,48 @@ train_examples = tf.data.Dataset.from_generator(gather_dummy_data, output_types=
                                                 output_shapes=(None, 2, 2, 2, 2))
 """
 
-train_examples = createTestSet(20)
+train_examples = createTestSet()
 
-d_model = 200
+d_model = 80
 model = Model(
-    shape=(None, 10, 10, 1, 1),
+    shape=(None, 5, 5, 1, 1),
     d_model=d_model,
-    num_convolutions=2,
+    num_convolutions=3,
     num_heads=4,
     encoder_specs=[
         #  (dff, d_tar)
-        (300, 240),
-        (240, 160),
-        (200, 160),
-        (200, 112),
-        (400, 60),
+        (112, 16),
+        (112, 6),
     ],
     num_layers_decoder=4,
-    dff_decoder=240,
-    max_length=12,
-    BATCH_SIZE=10,
+    dff_decoder=112,
+    max_length=22,
+    BATCH_SIZE=64,
     dropout_rate=0.0,
     PAD_TOKEN=-10,
 )
 
-# set = model.train(train_examples, 10000)
+# set = model.train(train_examples, 80000)
 
-test_results = []
+data = {}
+data[0] = []
 test_latent = []
+i = 0
+max = 40
 for e in train_examples:
+    i += 1
+    if i==max:
+        break
     result, latent, attention_weights = model.evaluate(tf.constant(
         e
     , tf.float32))
-    test_results.append(result)
+    data[0].append([tf.concat([[model.SOS], e, [model.EOS]], 0), result, latent, attention_weights])
     test_latent.append(latent)
     test = result[1:-1]
-    show(e[:1])
-    show(test[:1])
-    show(e[1:2])
-    show(test[1:2])
+    #show(e[:1])
+    #show(test[:1])
+    #show(e[1:2])
+    #show(test[1:2])
     show(e)
     show(test)
 
@@ -163,4 +167,21 @@ for run in X:
     draw(run)
 plt.ylabel('some numbers')
 plt.show()
+
+for i in range(X.__len__()):
+    data[0][i][2] = X[i].numpy().tolist()
+
+for i in range(data[0].__len__()):
+    element = data[0][i]
+    element[0] = element[0].numpy().tolist()
+    element[1] = element[1].numpy().tolist()
+    for key in element[3]:
+        element[3][key] = element[3][key].numpy().tolist()
+
+with open('data.json', 'w') as outfile:
+    json.dump(data, outfile)
+
+
+
+
 

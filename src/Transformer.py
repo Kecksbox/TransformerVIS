@@ -29,7 +29,7 @@ class Transformer(tf.keras.Model):
         self.EOS = EOS
         self.PAD_TOKEN = PAD_TOKEN
 
-        self.create_convolutions(num_convolutions, voxel_shape, d_model, convolution_scaling, rate)
+        self.create_convolutions(num_convolutions, voxel_shape, d_model, dff_decoder, convolution_scaling, rate)
 
         self.encoder = Encoder(d_model, encoder_specs, num_heads, max_length, rate)
 
@@ -125,7 +125,7 @@ class Transformer(tf.keras.Model):
             dim_channel = max(int(dim_channel * dims_scale), 1)
             shape[-1] = dim_channel
             convolutions.append(
-                [dim_channel, tuple(adj), 1, 'relu']
+                [dim_channel, tuple(adj), 1, None]
             )
             error += dim_reduction_error
 
@@ -137,11 +137,11 @@ class Transformer(tf.keras.Model):
 
         return [[(voxel_shape[-1], 1, 1, None)] + convolutions, shape]
 
-    def create_convolutions(self, num_convolutions, voxel_shape, d_model, convolution_scaling, rate):
+    def create_convolutions(self, num_convolutions, voxel_shape, d_model, dff_decoder, convolution_scaling, rate):
 
         convolution = self.compute_convolutions(num_convolutions, voxel_shape, d_model, convolution_scaling)
 
         self.input_convolution = Convolution(convolution[0], d_model, rate)
 
-        self.output_convolution = ConvolutionOutput(reversed(convolution[0]), convolution[1], voxel_shape, rate)
+        self.output_convolution = ConvolutionOutput(reversed(convolution[0]), convolution[1], voxel_shape, dff_decoder, rate)
 

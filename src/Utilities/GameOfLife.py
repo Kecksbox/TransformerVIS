@@ -88,10 +88,7 @@ def simulate(interval=50, length=200, grid_size=20, glider=False, gosper=False):
     # sys.argv[0] is the script name itself and can be ignored
 
     # set grid size
-    if int(grid_size) > 8:
-        N = int(grid_size)
-    else:
-        N = 10
+    N = int(grid_size)
 
     # declare grid
     grid = np.array([])
@@ -133,11 +130,11 @@ def show(run, interval=50):
     plt.show()
 
 def createTestSet_internal():
-    for _ in range(4):
-        yield tf.expand_dims(tf.expand_dims(simulate(grid_size=10, length=10), axis=-1), axis=-1)
+    for _ in range(40):
+        yield tf.expand_dims(tf.expand_dims(simulate(grid_size=5, length=20), axis=-1), axis=-1)
 
 def createTestSet(elementCount, grid_size=10, length=10):
-    return tf.data.Dataset.from_generator(createTestSet_internal, output_types=tf.float32, output_shapes=(None, 10, 10, 1, 1))
+    return tf.data.Dataset.from_generator(createTestSet_internal, output_types=tf.float32, output_shapes=(None, 5, 5, 1, 1))
 
 
 

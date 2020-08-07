@@ -4,10 +4,11 @@ import operator
 from functools import reduce
 
 from src.GRUGate import GRUGate
+from src.PointWiseFeedForward import PointWiseFeedForward
 
 
 class ConvolutionOutput(tf.keras.layers.Layer):
-    def __init__(self, convolutions, target_shape, voxel_shape, rate=0.1):
+    def __init__(self, convolutions, target_shape, voxel_shape, dff_decoder, rate=0.1):
         super(ConvolutionOutput, self).__init__()
 
         self.conv_layers = []
@@ -33,8 +34,10 @@ class ConvolutionOutput(tf.keras.layers.Layer):
 
         self.dense_r = tf.keras.layers.Dense(
             reduce(operator.mul, voxel_shape, 1), activation=None)
-        self.dense = tf.keras.layers.Dense(
-            reduce(operator.mul, target_shape, 1), activation=None)  # shape when flattend in the input convolution
+        self.dense = tf.keras.Sequential([
+            tf.keras.layers.Dense(dff_decoder, activation='relu'),
+            tf.keras.layers.Dense(reduce(operator.mul, target_shape, 1), activation=None)  # shape when flattend in the input convolution
+        ])
 
         self.gru = GRUGate(reduce(operator.mul, voxel_shape, 1))
 

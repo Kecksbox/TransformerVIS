@@ -46,6 +46,7 @@ class Convolution(tf.keras.layers.Layer):
             convolution = conv_layer(convolution, training=training)
         out = self.dense(self.flatten(convolution, training=training), training=training)
 
+        out = tf.keras.activations.relu(out, alpha=0.0, max_value=None, threshold=0)
         out = self.gru(residual, out)
         out = self.dropout(out, training=training)
 

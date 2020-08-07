@@ -4,6 +4,8 @@ import tensorflow as tf
 
 from src.Masks import create_masks
 
+import datetime
+
 from src.Utilities.GameOfLife import createTestSet, show
 
 
@@ -47,7 +49,6 @@ class Trainer:
             start = time.time()
 
             train_loss.reset_states()
-            train_accuracy.reset_states()
 
             for (batch, (inp)) in enumerate(train_dataset):
                 self.train_step(inp, inp)
@@ -58,15 +59,16 @@ class Trainer:
                         epoch + 1, batch, train_loss.result(), train_accuracy.result()))
                 """
 
-            if (epoch + 1) % 200 == 0:
+            if (epoch + 1) % 20 == 0:
                 ckpt_save_path = self.ckpt_manager.save()
                 print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                                     ckpt_save_path))
-                print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
-                                                                    train_loss.result(),
-                                                                    train_accuracy.result()))
+                print('Epoch {} Loss {:.4f}'.format(epoch + 1, train_loss.result()))
 
                 print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
+
+                with train_summary_writer.as_default():
+                    tf.summary.scalar('loss', train_loss.result(), step=epoch)
             """
             print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
                                                                 train_loss.result(),
@@ -81,8 +83,7 @@ class Trainer:
         gradients = tape.gradient(loss, self.transformer.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.transformer.trainable_variables))
 
-        train_loss(loss)
-        train_accuracy.update_state(tar_real, predictions)
+        train_loss(tar_real, predictions)
 
     def loss_function(self, real, pred):
         mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, self.PAD_TOKEN), 5))
@@ -112,6 +113,13 @@ class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 
 
-loss_object = tf.keras.losses.MeanAbsoluteError(reduction=tf.keras.losses.Reduction.NONE)
-train_loss = tf.keras.metrics.Mean(name='train_loss')
-train_accuracy = tf.keras.metrics.MeanAbsoluteError(name='mean_absolute_error')
+loss_object = tf.keras.losses.MeanSquaredError(
+    reduction=tf.keras.losses.Reduction.NONE
+)
+train_loss = tf.keras.metrics.MeanSquaredError(
+    name='train_loss'
+)
+
+current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+train_summary_writer = tf.summary.create_file_writer(train_log_dir)

@@ -22,15 +22,15 @@ class Model:
                  dropout_rate=0.01, beta_1=0.9, beta_2=0.98, epsilon=1e-9, warmup_steps=4000,
                  ):
         voxel_shape = shape[1:]
-        SOS = createFullToken(voxel_shape, SOS_TOKEN)
-        EOS = createFullToken(voxel_shape, EOS_TOKEN)
+        self.SOS = createFullToken(voxel_shape, SOS_TOKEN)
+        self.EOS = createFullToken(voxel_shape, EOS_TOKEN)
         self.input_pipeline = InputPipeline(
             BUFFER_SIZE=BUFFER_SIZE,
             BATCH_SIZE=BATCH_SIZE,
             shape=shape,
             max_length=max_length,
-            SOS=SOS,
-            EOS=EOS,
+            SOS=self.SOS,
+            EOS=self.EOS,
             PAD_TOKEN=PAD_TOKEN,
         )
         self.trainer = Trainer(
@@ -43,8 +43,8 @@ class Model:
                 num_layers_decoder=num_layers_decoder,
                 dff_decoder=dff_decoder,
                 max_length=max_length,
-                SOS=SOS,
-                EOS=EOS,
+                SOS=self.SOS,
+                EOS=self.EOS,
                 PAD_TOKEN=PAD_TOKEN,
                 rate=dropout_rate
             ),
