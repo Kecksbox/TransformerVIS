@@ -5,7 +5,8 @@ import numpy as np
 from random import randrange, randint, seed
 import tensorflow as tf
 
-seed(0)
+seed(1)
+np.random.seed(1)
 
 class Game:
 
@@ -39,9 +40,20 @@ class Game:
 
         grid[self.playerPos[0], self.playerPos[1]] = 20
 
-        return grid
+        return grid, self.playerPos
 
     def act(self, action):
+
+        movement = [0, 0]
+        if action == 0:
+            movement = [-1, 0]
+        elif action == 1:
+            movement = [0, 1]
+        elif action == 2:
+            movement = [1, 0]
+        elif action == 3:
+            movement = [0, -1]
+
 
         if self.resort[0] == self.playerPos[0] and self.resort[1] == self.playerPos[1]:
             return
@@ -49,8 +61,8 @@ class Game:
         if self.grave[0] == self.playerPos[0] and self.grave[1] == self.playerPos[1]:
             return
 
-        self.playerPos[0] = min(4, max(self.playerPos[0] + action[0], 0))
-        self.playerPos[1] = min(4, max(self.playerPos[1] + action[1], 0))
+        self.playerPos[0] = min(4, max(self.playerPos[0] + movement[0], 0))
+        self.playerPos[1] = min(4, max(self.playerPos[1] + movement[1], 0))
 
         self.satiety -= 1
         if self.poisonCounter > 0:
@@ -72,15 +84,23 @@ class Game:
         if self.poisonCounter == 0 or self.satiety == 0:
             self.playerPos = self.grave
 
+def randomParameterGrid(N):
+    return np.random.randint(4, size=(N, N))
+
 def simulate(length):
     run = [None] * length
     game = Game([randrange(5), randrange(5)])
+    paramterGrid = randomParameterGrid(5)
+    initalState, _ = game.observe()
     for i in range(length):
-        run[i] = game.observe()
-        #random action
-        game.act([randint(-1,1), randint(-1,1)])
+        run[i], playerPos = game.observe()
+        game.act(paramterGrid[playerPos[0], playerPos[1]])
 
-    return run
+    parameters = tf.stack([paramterGrid, initalState], axis=2)
+    return (
+        tf.expand_dims(parameters, axis=-1),
+        tf.expand_dims(tf.expand_dims(run, axis=-1), axis=-1),
+    )
 
 def show_internal(frameNum, img, run):
     new_grid = tf.squeeze(run[frameNum])
@@ -104,42 +124,22 @@ def show(run, interval=200):
 
 
 def createTestSet_internal():
-    for _ in range(2000):
-        yield tf.expand_dims(tf.expand_dims(simulate(20), axis=-1), axis=-1)
+    for _ in range(40):
+        yield simulate(20)
 
 def createTestSet():
-    return tf.data.Dataset.from_generator(createTestSet_internal, output_types=tf.float32, output_shapes=(None, 5, 5, 1, 1))
+    return tf.data.Dataset.from_generator(
+        createTestSet_internal,
+        output_types=(tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([5, 5, 2, 1]), tf.TensorShape([None, 5, 5, 1, 1]))
+    )
 
 
 if __name__ == '__main__':
     testRun = simulate(10)
-    createdRun = []
-    game = Game([2, 0])
-    createdRun.append(game.observe())
-    game.act([0, 1])
-    createdRun.append(game.observe())
-    game.act([0, 1])
-    createdRun.append(game.observe())
-    game.act([0, 1])
-    createdRun.append(game.observe())
-    game.act([0, 1])
-    createdRun.append(game.observe())
-    game.act([-1, 0])
-    createdRun.append(game.observe())
-    game.act([0, -1])
-    createdRun.append(game.observe())
-    game.act([0, -1])
-    createdRun.append(game.observe())
-    game.act([0, -1])
-    createdRun.append(game.observe())
-    game.act([0, -1])
-    createdRun.append(game.observe())
-    game.act([-1, 0])
-    createdRun.append(game.observe())
-    game.act([1, 1])
-    createdRun.append(game.observe())
-    game.act([-1, 0])
-    show(createdRun)
+    testSet = createTestSet()
+    for e in testSet:
+        show(e[1])
 
 
 

@@ -1,8 +1,10 @@
 import tensorflow as tf
 
 
-def PointWiseFeedForward(d_model, dff):
-    return tf.keras.Sequential([
-        tf.keras.layers.Dense(dff, activation='relu'),  # (batch_size, seq_len, dff)
-        tf.keras.layers.Dense(d_model)  # (batch_size, seq_len, d_model)
-    ])
+def PointWiseFeedForward(d_model, dff, num_layers=2):
+    assert num_layers > 1
+    layers = [None] * num_layers
+    layers[-1] = tf.keras.layers.Dense(d_model)
+    for i in range(num_layers - 1):
+        layers[i] = tf.keras.layers.Dense(dff, activation='relu')
+    return tf.keras.Sequential(layers)

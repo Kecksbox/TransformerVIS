@@ -6,7 +6,7 @@ from src.Masks import create_masks
 
 import datetime
 
-from src.Utilities.GameOfLife import createTestSet, show
+from src.Utilities.CustomSchedule import CustomSchedule
 
 
 class Trainer:
@@ -14,6 +14,10 @@ class Trainer:
         self.transformer = transformer
         self.PAD_TOKEN = PAD_TOKEN
         self.learningRate = CustomSchedule(transformer.d_model, warmup_steps)
+        self.loss_object = tf.keras.losses.MeanSquaredError(
+            reduction=tf.keras.losses.Reduction.NONE, name='mean_squared_error'
+        )
+        self.train_loss = tf.keras.metrics.Mean(name='train_loss')
         self.optimizer = tf.keras.optimizers.Adam(self.learningRate, beta_1=beta_1, beta_2=beta_2, epsilon=epsilon)
         self.load_latest_checkpoint()
 
@@ -21,7 +25,7 @@ class Trainer:
         ckpt = tf.train.Checkpoint(transformer=self.transformer, optimizer=self.optimizer)
         self.ckpt_manager = tf.train.CheckpointManager(
             tf.train.Checkpoint(transformer=self.transformer, optimizer=self.optimizer),
-            "./checkpoints/train",
+            "./checkpoints/vanillaTransformer/train",
             max_to_keep=5
         )
         if self.ckpt_manager.latest_checkpoint:
@@ -48,9 +52,9 @@ class Trainer:
         for epoch in range(epochs):
             start = time.time()
 
-            train_loss.reset_states()
+            self.train_loss.reset_states()
 
-            for (batch, (inp)) in enumerate(train_dataset):
+            for (batch, (paramters, inp)) in enumerate(train_dataset):
                 self.train_step(inp, inp)
 
                 """
@@ -63,12 +67,12 @@ class Trainer:
                 ckpt_save_path = self.ckpt_manager.save()
                 print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                                     ckpt_save_path))
-                print('Epoch {} Loss {:.4f}'.format(epoch + 1, train_loss.result()))
+                print('Epoch {} Loss {:.4f}'.format(epoch + 1, self.train_loss.result()))
 
                 print('Time taken for 1 epoch: {} secs\n'.format(time.time() - start))
 
                 with train_summary_writer.as_default():
-                    tf.summary.scalar('loss', train_loss.result(), step=epoch)
+                    tf.summary.scalar('loss', self.train_loss.result(), step=epoch)
             """
             print('Epoch {} Loss {:.4f} Accuracy {:.4f}'.format(epoch + 1,
                                                                 train_loss.result(),
@@ -83,43 +87,20 @@ class Trainer:
         gradients = tape.gradient(loss, self.transformer.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.transformer.trainable_variables))
 
-        train_loss(tar_real, predictions)
+        self.train_loss(loss)
 
     def loss_function(self, real, pred):
-        mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, self.PAD_TOKEN), 5))
+        mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, self.PAD_TOKEN), [5, 4, 3, 2]))
 
-        loss_ = loss_object(real, pred)
+        loss_ = tf.reduce_sum(self.loss_object(real, pred), [4, 3, 2])
 
         mask = tf.cast(mask, dtype=loss_.dtype)
         loss_ *= mask
 
-        return tf.reduce_sum(loss_)
+        return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
 
 
-class CustomSchedule(tf.keras.optimizers.schedules.LearningRateSchedule):
-    def __init__(self, d_model, warmup_steps=4000):
-        super(CustomSchedule, self).__init__()
-
-        self.d_model = d_model
-        self.d_model = tf.cast(self.d_model, tf.float32)
-
-        self.warmup_steps = warmup_steps
-
-    def __call__(self, step):
-        arg1 = tf.math.rsqrt(step)
-        arg2 = step * (self.warmup_steps ** -1.5)
-
-        return tf.math.rsqrt(self.d_model) * tf.math.minimum(arg1, arg2)
-
-
-
-loss_object = tf.keras.losses.MeanSquaredError(
-    reduction=tf.keras.losses.Reduction.NONE
-)
-train_loss = tf.keras.metrics.MeanSquaredError(
-    name='train_loss'
-)
 
 current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-train_log_dir = 'logs/gradient_tape/' + current_time + '/train'
+train_log_dir = 'logs/gradient_tape/vaniallaTransformer' + current_time + '/train'
 train_summary_writer = tf.summary.create_file_writer(train_log_dir)

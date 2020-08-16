@@ -12,11 +12,11 @@ class InputPipeline:
         self.BUFFER_SIZE = BUFFER_SIZE
         self.BATCH_SIZE = BATCH_SIZE
 
-    def pre_process_internal(self, inp):
-        return tf.concat([[self.SOS], inp, [self.EOS]], 0)
+    def pre_process_internal(self, parameters, run):
+        return (parameters, tf.concat([[self.SOS], run, [self.EOS]], 0))
 
-    def filter_max_length(self, x):
-        return tf.size(x) <= self.max_length
+    def filter_max_length(self, parameters, run):
+        return tf.size(run) <= self.max_length
 
     def process(self, dataset):
         train_examples = dataset.cache()
@@ -25,7 +25,7 @@ class InputPipeline:
         train_dataset = train_examples.cache()
         train_dataset = train_dataset.shuffle(self.BUFFER_SIZE).padded_batch(
             self.BATCH_SIZE,
-            padded_shapes=self.shape,
-            padding_values=tf.constant(self.PAD_TOKEN, tf.float32),
+            padded_shapes=((5, 5, 2, 1), (None, 5, 5, 1, 1)),
+            padding_values=(tf.constant(self.PAD_TOKEN, tf.float32), tf.constant(self.PAD_TOKEN, tf.float32)),
         )
         return train_dataset.prefetch(tf.data.experimental.AUTOTUNE)

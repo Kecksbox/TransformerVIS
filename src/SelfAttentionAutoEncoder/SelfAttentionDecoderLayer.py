@@ -1,0 +1,40 @@
+import tensorflow as tf
+
+from src.MultiHeadAttention import MultiHeadAttention
+from src.PointWiseFeedForward import PointWiseFeedForward
+from src.GRUGate import GRUGate
+
+
+class SelfAttentionDecoderLayer(tf.keras.layers.Layer):
+    def __init__(self, d_model, num_heads, dff, rate=0.1):
+        super(SelfAttentionDecoderLayer, self).__init__()
+
+        self.mha1 = MultiHeadAttention(d_model, num_heads)
+
+        self.ffn = PointWiseFeedForward(d_model, dff)
+
+        self.layernorm1 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+        self.layernorm2 = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+
+        self.gru1 = GRUGate(d_model)
+        self.gru2 = GRUGate(d_model)
+
+        self.dropout1 = tf.keras.layers.Dropout(rate)
+        self.dropout2 = tf.keras.layers.Dropout(rate)
+
+    def call(self, x, static, training, look_ahead_mask):
+
+        in1 = self.layernorm1(x)
+        attn1, attn_weights_block1 = self.mha1(in1, in1, in1, look_ahead_mask)  # (batch_size, input_seq_len, d_model)
+        attn1 = tf.keras.activations.relu(attn1, alpha=0.0, max_value=None, threshold=0)
+        out1 = self.gru1(x, attn1)  # (batch_size, input_seq_len, d_model)
+        out1 = self.dropout1(out1, training=training)
+
+        in2 = self.layernorm2(out1)
+        in2_extended = tf.concat([in2, static], axis=-1)
+        ffn_output = self.ffn(in2_extended, training=training)  # (batch_size, target_seq_len, d_model)
+        ffn_output = tf.keras.activations.relu(ffn_output, alpha=0.0, max_value=None, threshold=0)
+        out2 = self.gru2(out1, ffn_output)  # (batch_size, target_seq_len, d_model)
+        out2 = self.dropout2(out2, training=training)
+
+        return out2, attn_weights_block1

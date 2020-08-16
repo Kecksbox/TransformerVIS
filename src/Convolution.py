@@ -8,19 +8,34 @@ from src.GRUGate import GRUGate
 
 
 class Convolution(tf.keras.layers.Layer):
-    def __init__(self, convolutions, d_model, rate=0.1):
+    def __init__(self, convolutions, d_model, rate=0.1, time_distributed=True):
         super(Convolution, self).__init__()
-
-        self.flatten_r = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
-        self.flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
 
         self.dense_r = tf.keras.layers.Dense(d_model, activation=None)
         self.dense = tf.keras.layers.Dense(d_model, activation='relu')
 
         self.conv_layers = []
-        for conv in convolutions:
-            self.conv_layers.append(
-                tf.keras.layers.TimeDistributed(
+        if time_distributed:
+            self.flatten_r = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
+            self.flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
+
+            for conv in convolutions:
+                self.conv_layers.append(
+                    tf.keras.layers.TimeDistributed(
+                        tf.keras.layers.Conv3D(
+                            filters=conv[0],
+                            kernel_size=conv[1],
+                            strides=conv[2],
+                            activation=conv[3],
+                        )
+                    )
+                )
+        else:
+            self.flatten_r = tf.keras.layers.Flatten()
+            self.flatten = tf.keras.layers.Flatten()
+
+            for conv in convolutions:
+                self.conv_layers.append(
                     tf.keras.layers.Conv3D(
                         filters=conv[0],
                         kernel_size=conv[1],
@@ -28,7 +43,6 @@ class Convolution(tf.keras.layers.Layer):
                         activation=conv[3],
                     )
                 )
-            )
 
         self.layernorm = tf.keras.layers.LayerNormalization(epsilon=1e-6)
 

@@ -55,8 +55,7 @@ class Model:
             PAD_TOKEN=PAD_TOKEN,
         )
 
-    def train(self, train_dataset, epochs):
-        set = self.input_pipeline.process(train_dataset)
+    def train(self, set, epochs):
         self.trainer.train(
             train_dataset=set,
             epochs=epochs

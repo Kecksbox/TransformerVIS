@@ -8,7 +8,7 @@ import tensorflow as tf
 from src.Convolution import Convolution
 from src.ConvolutionOutput import ConvolutionOutput
 from src.Decoder import Decoder
-from src.Encoder import Encoder
+from src.EncodingAttentionAutoEncoder.Encoder import Encoder
 from src.Masks import create_masks
 
 
