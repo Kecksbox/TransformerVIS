@@ -38,7 +38,7 @@ SOS = createFullToken((5, 5, 1, 1), -1)
 EOS = createFullToken((5, 5, 1, 1), -2)
 input_pipeline = InputPipeline(
     BUFFER_SIZE=200,
-    BATCH_SIZE=40,
+    BATCH_SIZE=2000,
     shape=(None, 5, 5, 1, 1),
     max_length=22,
     SOS=SOS,
@@ -73,7 +73,7 @@ selfAttentionAutoEncoder = SelfAttentionAutoEncoder(
                                          convolution_scaling=1),
     static_convolution=compute_convolutions(num_convolutions=3, voxel_shape=(5, 5, 2, 1), d_model=112,
                                             convolution_scaling=1),
-    num_attention_layers=3, attention_dff=112,
+    num_attention_layers=4, attention_dff=224,
     num_decoder_layers=2, decoder_dff=224,
     max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
     rate=0.001)
@@ -91,12 +91,12 @@ encodingAutoEncoder = EncodingAttentionAutoEncoder(
     num_heads=4,
     num_layers_decoder=4, dff_decoder=224,
     max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
-    rate=0.00)
+    rate=0.001)
 
 set = input_pipeline.process(train_examples)
-#encodingAutoEncoder.train(set, 80000)
-#selfAttentionAutoEncoder.train(set, 80000)
-#orignalModel.train(set, 80000)
+encodingAutoEncoder.train(set, 80000)
+# selfAttentionAutoEncoder.train(set, 80000)
+# orignalModel.train(set, 80000)
 
 data = {}
 data[0] = []
@@ -131,10 +131,10 @@ for (parameters, run) in train_examples:
     # show(test[:1])
     # show(e[1:2])
     # show(test[1:2])
-    show(run)
+    #show(run)
     #show(reconstruction[1:-1])
     #show(encodingReconstruction[1:-1])
-    show(selfAttentionReconstruction[1:-1])
+    #show(selfAttentionReconstruction[1:-1])
 
 
 def pca(inputs, n_components):  # inputs (batch, time_steps, d_latent)

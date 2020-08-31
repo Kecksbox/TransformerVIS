@@ -24,12 +24,13 @@ class EncoderLayer(tf.keras.layers.Layer):
 
     def call(self, x, training, mask):
 
-        # attn_output, _ = self.mha(in1, in1, in1, mask)  # (batch_size, input_seq_len, d_model)
+        #in1 = self.layernorm1(x)
+        #attn_output, _ = self.mha(in1, in1, in1, mask)  # (batch_size, input_seq_len, d_model)
         #attn_output = tf.keras.activations.relu(attn_output, alpha=0.0, max_value=None, threshold=0)
         #out1 = self.gru1(x, attn_output, training=training)  # (batch_size, input_seq_len, d_model)
         #out1 = self.dropout1(out1, training=training)
 
-        in2 = self.layernorm1(x)
+        in2 = self.layernorm2(x)
         ffn_r_output = self.ffn_r(in2)
         ffn_output = self.ffn(in2)  # (batch_size, input_seq_len, d_model)
         ffn_output = tf.keras.activations.relu(ffn_output, alpha=0.0, max_value=None, threshold=0)

@@ -5,7 +5,6 @@ import tensorflow as tf
 
 from src.Convolution import Convolution
 from src.ConvolutionOutput import ConvolutionOutput
-from src.Decoder import Decoder
 from src.EncodingAttentionAutoEncoder.Encoder import Encoder
 from src.Utilities.CustomSchedule import CustomSchedule
 from src.Masks import create_padding_mask

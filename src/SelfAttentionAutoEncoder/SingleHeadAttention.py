@@ -11,9 +11,9 @@ class SingleHeadAttention(tf.keras.layers.Layer):
 
         self.depth = d_model
 
-        self.wq = PointWiseFeedForward(d_model, dff, 3)
-        self.wk = PointWiseFeedForward(d_model, dff, 3)
-        self.wv = PointWiseFeedForward(d_model, 10, 2)
+        self.wq = PointWiseFeedForward(d_model, dff, num_layers)
+        self.wk = PointWiseFeedForward(d_model, dff, num_layers)
+        self.wv = PointWiseFeedForward(d_model, dff, num_layers)
 
         self.dense = tf.keras.layers.Dense(d_model)
 
@@ -52,9 +52,16 @@ class SingleHeadAttention(tf.keras.layers.Layer):
         if mask is not None:
             scaled_attention_logits += (mask * -1e9)
 
+        # mask the SOS token
+        test = tf.expand_dims(tf.cast(tf.logical_not(tf.range(scaled_attention_logits.shape[3]) < tf.reshape([1], (-1, 1))), tf.float32), axis=1)
+        test2 = tf.expand_dims(tf.repeat(test, scaled_attention_logits.shape[2], axis=1), axis=0)
+        test3 = tf.repeat(test2, scaled_attention_logits.shape[0], axis=0)
+
         # softmax is normalized on the last axis (seq_len_k) so that the scores
         # add up to 1.
         attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
+
+        attention_weights *= test3
 
         output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
 

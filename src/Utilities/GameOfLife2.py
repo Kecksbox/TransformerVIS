@@ -5,8 +5,8 @@ import numpy as np
 from random import randrange, randint, seed
 import tensorflow as tf
 
-seed(1)
-np.random.seed(1)
+seed(0)
+np.random.seed(0)
 
 class Game:
 
@@ -124,7 +124,7 @@ def show(run, interval=200):
 
 
 def createTestSet_internal():
-    for _ in range(40):
+    for _ in range(16000):
         yield simulate(20)
 
 def createTestSet():
