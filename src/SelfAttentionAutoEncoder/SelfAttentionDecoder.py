@@ -41,7 +41,8 @@ class SelfAttentionDecoder(tf.keras.layers.Layer):
         x = self.dropout_enc(x, training=training)
 
         in1 = self.layernorm_att(x)
-        attn, attention_weights['selfattention_decoder_layer_block'] = self.sha(in1, in1, in1, look_ahead_mask)  # (batch_size, input_seq_len, d_model)
+        attn, attention_weights['selfattention_decoder_layer_block'] = self.sha(in1, in1, in1, look_ahead_mask, True)  # (batch_size, input_seq_len, d_model)
+        attention_weights['selfattention_decoder_layer_block'] = attention_weights['selfattention_decoder_layer_block'][:,:, :-1, 1:]
         attn = tf.keras.activations.relu(attn, alpha=0.0, max_value=None, threshold=0)
         out1 = self.gru_att(x, attn)  # (batch_size, input_seq_len, d_model)
         out1 = self.dropout_att(out1, training=training)

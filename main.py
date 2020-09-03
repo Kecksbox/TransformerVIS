@@ -37,7 +37,7 @@ model = Model(
 SOS = createFullToken((5, 5, 1, 1), -1)
 EOS = createFullToken((5, 5, 1, 1), -2)
 input_pipeline = InputPipeline(
-    BUFFER_SIZE=200,
+    BUFFER_SIZE=2000,
     BATCH_SIZE=2000,
     shape=(None, 5, 5, 1, 1),
     max_length=22,
@@ -69,14 +69,14 @@ selfAttentionAutoEncoder = SelfAttentionAutoEncoder(
     voxel_shape=(5, 5, 1, 1),
     d_model=81,
     d_parameter=112,
-    seq_convolution=compute_convolutions(num_convolutions=3, voxel_shape=(5, 5, 1, 1), d_model=81,
+    seq_convolution=compute_convolutions(num_convolutions=2, voxel_shape=(5, 5, 1, 1), d_model=81,
                                          convolution_scaling=1),
-    static_convolution=compute_convolutions(num_convolutions=3, voxel_shape=(5, 5, 2, 1), d_model=112,
+    static_convolution=compute_convolutions(num_convolutions=2, voxel_shape=(5, 5, 2, 1), d_model=112,
                                             convolution_scaling=1),
-    num_attention_layers=4, attention_dff=224,
-    num_decoder_layers=2, decoder_dff=224,
+    num_attention_layers=3, attention_dff=224,
+    num_decoder_layers=3, decoder_dff=224,
     max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
-    rate=0.001)
+    rate=0.000)
 encodingAutoEncoder = EncodingAttentionAutoEncoder(
     voxel_shape=(5, 5, 1, 1),
     d_model=80,
@@ -86,15 +86,16 @@ encodingAutoEncoder = EncodingAttentionAutoEncoder(
     encoder_specs=[
         (112, 32),
         (112, 16),
+        (112, 16),
         (112, 2),
     ],
     num_heads=4,
-    num_layers_decoder=4, dff_decoder=224,
+    num_layers_decoder=2, dff_decoder=224,
     max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
-    rate=0.001)
+    rate=0.000)
 
 set = input_pipeline.process(train_examples)
-encodingAutoEncoder.train(set, 80000)
+# encodingAutoEncoder.train(set, 80000)
 # selfAttentionAutoEncoder.train(set, 80000)
 # orignalModel.train(set, 80000)
 
@@ -113,6 +114,7 @@ for (parameters, run) in train_examples:
     selfAttentionReconstruction, self_attention_weights = selfAttentionAutoEncoder.evaluate(
         run, parameters
     )
+
     """
     reconstruction, latent, attention = orignalModel.evaluate(run)
     self_attention_weights = {}
@@ -125,7 +127,7 @@ for (parameters, run) in train_examples:
         else:
             encoding_attention_weights[key] = attention[key]
     """
-    data[0].append([tf.concat([[encodingAutoEncoder.SOS], run, [encodingAutoEncoder.EOS]], 0), latent, [self_attention_weights, encoding_attention_weights]])
+    data[0].append([selfAttentionReconstruction[1:-1], latent, [self_attention_weights, encoding_attention_weights]])
     test_latent.append(latent)
     # show(e[:1])
     # show(test[:1])
@@ -133,7 +135,7 @@ for (parameters, run) in train_examples:
     # show(test[1:2])
     #show(run)
     #show(reconstruction[1:-1])
-    #show(encodingReconstruction[1:-1])
+    #show(encodingReconstruction)
     #show(selfAttentionReconstruction[1:-1])
 
 

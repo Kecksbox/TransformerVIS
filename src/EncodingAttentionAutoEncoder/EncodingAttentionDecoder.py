@@ -33,25 +33,20 @@ class EncodingAttentionDecoder(tf.keras.layers.Layer):
         self.d_model = d_model
         self.num_layers = num_layers
 
-        self.pos_encoding = positional_encoding(maximum_position_encoding, d_model)
+        self.unfold = tf.keras.layers.Dense(d_model)
 
         self.dec_layers = [EncodingAttentionDecoderLayer(d_model, num_heads, dff, rate)
                            for _ in range(num_layers)]
         self.dropout = tf.keras.layers.Dropout(rate)
 
-    def call(self, x, enc_output, training, padding_mask):
-        seq_len = tf.shape(x)[1]
-        attention_weights = {}
-
-        x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
-        x += self.pos_encoding[:, :seq_len, :]
+    def call(self, x, training, padding_mask):
 
         x = self.dropout(x, training=training)
 
-        for i in range(self.num_layers):
-            x, block = self.dec_layers[i](x, enc_output, training, padding_mask)
+        x = self.unfold(x)
 
-            attention_weights['encodingAttention_decoder_layer{}_block'.format(i + 1)] = block
+        for i in range(self.num_layers):
+            x = self.dec_layers[i](x, training, padding_mask)
 
         # x.shape == (batch_size, target_seq_len, d_model)
-        return x, attention_weights
+        return x

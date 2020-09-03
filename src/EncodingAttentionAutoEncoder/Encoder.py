@@ -2,6 +2,9 @@ import numpy as np
 import tensorflow as tf
 
 from src.EncodingAttentionAutoEncoder.EncoderLayer import EncoderLayer
+from src.SelfAttentionAutoEncoder.SingleHeadAttention import SingleHeadAttention
+from src.PointWiseFeedForward import PointWiseFeedForward
+from src.GRUGate import GRUGate
 
 
 def get_angles(pos, i, d_model):
@@ -33,6 +36,15 @@ class Encoder(tf.keras.layers.Layer):
 
         self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
 
+        self.sha = SingleHeadAttention(d_model, 224, 3, rate)
+
+        self.layernorm_att = tf.keras.layers.LayerNormalization(epsilon=1e-6)
+
+        self.gru_att = GRUGate(d_model)
+
+        self.dropout_enc = tf.keras.layers.Dropout(rate)
+        self.dropout_att = tf.keras.layers.Dropout(rate)
+
         self.num_layers = encoder_specs.__len__()
         self.enc_layers = [None] * self.num_layers
         for i in range(self.num_layers):
@@ -40,12 +52,13 @@ class Encoder(tf.keras.layers.Layer):
             inp = d_model
             if i != 0:
                 inp = encoder_specs[i - 1][1]
-            self.enc_layers[i] = EncoderLayer(inp, num_heads, spec[0], spec[1], rate)
+            self.enc_layers[i] = EncoderLayer(224, spec[1], rate)
 
         self.dropout = tf.keras.layers.Dropout(rate)
 
     def call(self, x, training, mask):
         seq_len = tf.shape(x)[1]
+        attention_weights = {}
 
         # adding position encoding.
         x *= tf.math.sqrt(tf.cast(self.d_model, tf.float32))
@@ -53,7 +66,13 @@ class Encoder(tf.keras.layers.Layer):
 
         x = self.dropout(x, training=training)
 
-        for i in range(self.num_layers):
-            x = self.enc_layers[i](x, training, mask)
+        in1 = self.layernorm_att(x)
+        attn, attention_weights['selfattention_decoder_layer_block'] = self.sha(in1, in1, in1, mask)
+        attn = tf.keras.activations.relu(attn, alpha=0.0, max_value=None, threshold=0)
+        out1 = self.gru_att(x, attn)  # (batch_size, input_seq_len, d_model)
+        out1 = self.dropout_att(out1, training=training)
 
-        return x  # (batch_size, input_seq_len, d_model)
+        for i in range(self.num_layers):
+            out1 = self.enc_layers[i](out1, training)
+
+        return out1, attention_weights  # (batch_size, input_seq_len, d_model)

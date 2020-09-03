@@ -33,7 +33,8 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
 
         self.input_convolution = Convolution(seq_convolution[0], d_model, rate)
 
-        self.output_convolution = ConvolutionOutput(reversed(seq_convolution[0]), seq_convolution[1], voxel_shape, decoder_dff,
+        self.output_convolution = ConvolutionOutput(reversed(seq_convolution[0]), seq_convolution[1], voxel_shape,
+                                                    decoder_dff,
                                                     rate)
 
         self.parameter_convolution = Convolution(static_convolution[0], d_parameter, rate, time_distributed=False)
@@ -99,7 +100,7 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
 
         return
 
-    #@tf.function
+    # @tf.function
     def evaluate(self, inp, static):
         # adding the start and end token
         static = tf.expand_dims(static, axis=0)
@@ -110,7 +111,6 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
         output = tf.cast(decoder_input, tf.float32)
 
         for i in range(self.max_length - 1):
-
             look_ahead_mask = create_look_ahead_mask(tf.shape(output)[1])
             dec_target_padding_mask = create_padding_mask(output, self.PAD_TOKEN)
             combined_look_ahead_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)

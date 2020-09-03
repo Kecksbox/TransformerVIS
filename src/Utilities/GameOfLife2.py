@@ -124,7 +124,7 @@ def show(run, interval=200):
 
 
 def createTestSet_internal():
-    for _ in range(16000):
+    for _ in range(4000):
         yield simulate(20)
 
 def createTestSet():

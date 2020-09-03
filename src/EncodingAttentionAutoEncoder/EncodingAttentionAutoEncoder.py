@@ -32,7 +32,8 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
 
         self.input_convolution = Convolution(seq_convolution[0], d_model, rate)
 
-        self.output_convolution = ConvolutionOutput(reversed(seq_convolution[0]), seq_convolution[1], voxel_shape, dff_decoder,
+        self.output_convolution = ConvolutionOutput(reversed(seq_convolution[0]), seq_convolution[1], voxel_shape,
+                                                    dff_decoder,
                                                     rate)
 
         self.encoder = Encoder(d_model, encoder_specs, num_heads, max_length, rate)
@@ -64,16 +65,14 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
             ckpt.restore(self.ckpt_manager.latest_checkpoint).expect_partial()
             print('Latest checkpoint restored!!')
 
-    def call(self, inp, tar, training, enc_padding_mask, dec_padding_mask):
+    def call(self, inp, training, enc_padding_mask, dec_padding_mask):
         inp_embedding = self.input_convolution(inp, training=training)  # (batch_size, inp_seq_len, d_model)
 
-        enc_output = self.encoder(inp_embedding, training, enc_padding_mask)  # (batch_size, inp_seq_len, d_latent)
-
-        tar_embedding = self.input_convolution(tar, training=training)  # (batch_size, inp_seq_len - 1, d_model)
+        enc_output, attention_weights = self.encoder(inp_embedding, training,
+                                                     enc_padding_mask)  # (batch_size, inp_seq_len, d_latent)
 
         # dec_output.shape == (batch_size, tar_seq_len, d_model)
-        dec_output, attention_weights = self.decoder(
-            tar_embedding, enc_output, training, dec_padding_mask)
+        dec_output = self.decoder(enc_output, training, dec_padding_mask)
 
         final_output = self.output_convolution(dec_output)  # (batch_size, tar_seq_len, ...voxel_shape)
 
@@ -81,56 +80,36 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
 
     @tf.function
     def train_step(self, inp):
-        tar_inp = inp[:, :-1]
-        tar_real = inp[:, 1:]
+        tar_inp = inp[:, 1:-1]
+        tar_real = inp[:, 1:-1]
 
-        enc_padding_mask = create_padding_mask(inp, self.PAD_TOKEN)
+        enc_padding_mask = create_padding_mask(tar_inp, self.PAD_TOKEN)
         dec_padding_mask = enc_padding_mask
 
         with tf.GradientTape() as tape:
-            predictions, _, _ = self(inp, tar_inp,
+            predictions, _, _ = self(tar_inp,
                                      True,
                                      enc_padding_mask,
                                      dec_padding_mask)
             self.update(tar_real, predictions, tape)
 
-    #@tf.function
+    # @tf.function
     def evaluate(self, input):
         # adding the start and end token
-        input = tf.concat([[self.SOS], input, [self.EOS]], 0)
+        # input = tf.concat([[self.SOS], input, [self.EOS]], 0)
 
         inp_sentence = input
         encoder_input = tf.expand_dims(inp_sentence, 0)
 
-        # the first voxel to the transformer should be the
-        # start voxel.
-        decoder_input = tf.expand_dims(tf.expand_dims(self.SOS, 0), 0)
-        output = tf.cast(decoder_input, tf.float32)
+        enc_padding_mask = create_padding_mask(encoder_input, self.PAD_TOKEN)
+        dec_padding_mask = enc_padding_mask
 
-        for i in range(self.max_length - 1):
+        predictions, latent, attention_weights = self(encoder_input,
+                                                      False,
+                                                      enc_padding_mask,
+                                                      dec_padding_mask)
 
-            enc_padding_mask = create_padding_mask(encoder_input, self.PAD_TOKEN)
-            dec_padding_mask = enc_padding_mask
-
-            # predictions.shape == (batch_size, seq_len, ...voxel_shape)
-            predictions, latent, attention_weights = self(encoder_input,
-                                                          output,
-                                                          False,
-                                                          enc_padding_mask,
-                                                          dec_padding_mask)
-
-            # select the last voxel from the seq_len dimension
-            prediction = predictions[:, -1:, :]  # (batch_size, 1, ...voxel_shape)
-
-            # return the result if the prediction is equal to the end token [TODO]
-            # if all(tf.math.equal(prediction[0][0], EOS)):
-            #    return tf.squeeze(output, axis=0), attention_weights
-
-            # concatentate the predicted_voxel to the output which is given to the decoder
-            # as its input.
-            output = tf.concat([output, prediction], axis=1)
-
-        return tf.squeeze(output, axis=0), latent, attention_weights
+        return tf.squeeze(predictions, axis=0), latent, attention_weights
 
     def train(self, train_dataset, epochs):
         for epoch in range(epochs):

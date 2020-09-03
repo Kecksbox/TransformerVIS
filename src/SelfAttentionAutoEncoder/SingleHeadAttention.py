@@ -24,7 +24,7 @@ class SingleHeadAttention(tf.keras.layers.Layer):
         x = tf.reshape(x, (batch_size, -1, self.num_heads, self.depth))
         return tf.transpose(x, perm=[0, 2, 1, 3])
 
-    def scaled_dot_product_attention(self, q, k, v, mask):
+    def scaled_dot_product_attention(self, q, k, v, mask, maskSOS):
         """Calculate the attention weights.
         q, k, v must have matching leading dimensions.
         k, v must have matching penultimate dimension, i.e.: seq_len_k = seq_len_v.
@@ -52,22 +52,24 @@ class SingleHeadAttention(tf.keras.layers.Layer):
         if mask is not None:
             scaled_attention_logits += (mask * -1e9)
 
-        # mask the SOS token
-        test = tf.expand_dims(tf.cast(tf.logical_not(tf.range(scaled_attention_logits.shape[3]) < tf.reshape([1], (-1, 1))), tf.float32), axis=1)
-        test2 = tf.expand_dims(tf.repeat(test, scaled_attention_logits.shape[2], axis=1), axis=0)
-        test3 = tf.repeat(test2, scaled_attention_logits.shape[0], axis=0)
-
         # softmax is normalized on the last axis (seq_len_k) so that the scores
         # add up to 1.
         attention_weights = tf.nn.softmax(scaled_attention_logits, axis=-1)  # (..., seq_len_q, seq_len_k)
 
-        attention_weights *= test3
+        if maskSOS:
+            # mask the SOS token
+            test = tf.expand_dims(
+                tf.cast(tf.logical_not(tf.range(scaled_attention_logits.shape[3]) < tf.reshape([1], (-1, 1))),
+                        tf.float32), axis=1)
+            test2 = tf.expand_dims(tf.repeat(test, scaled_attention_logits.shape[2], axis=1), axis=0)
+            test3 = tf.repeat(test2, scaled_attention_logits.shape[0], axis=0)
+            attention_weights *= test3
 
         output = tf.matmul(attention_weights, v)  # (..., seq_len_q, depth_v)
 
         return output, attention_weights
 
-    def call(self, v, k, q, mask):
+    def call(self, v, k, q, mask, maskSOS=False):
         batch_size = tf.shape(q)[0]
 
         q = self.wq(q)  # (batch_size, seq_len, d_model)
@@ -81,7 +83,7 @@ class SingleHeadAttention(tf.keras.layers.Layer):
         # scaled_attention.shape == (batch_size, num_heads, seq_len_q, depth)
         # attention_weights.shape == (batch_size, num_heads, seq_len_q, seq_len_k)
         scaled_attention, attention_weights = self.scaled_dot_product_attention(
-            q, k, v, mask)
+            q, k, v, mask, maskSOS)
 
         scaled_attention = tf.transpose(scaled_attention,
                                         perm=[0, 2, 1, 3])  # (batch_size, seq_len_q, num_heads, depth)
