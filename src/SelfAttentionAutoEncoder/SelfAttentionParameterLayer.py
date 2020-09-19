@@ -1,7 +1,7 @@
 import tensorflow as tf
 
-from src.PointWiseFeedForward import PointWiseFeedForward
-from src.GRUGate import GRUGate
+from src.Layer.PointWiseFeedForward import PointWiseFeedForward
+from src.Layer.GRUGate import GRUGate
 
 
 class SelfAttentionParameterLayer(tf.keras.layers.Layer):

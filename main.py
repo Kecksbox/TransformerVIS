@@ -5,99 +5,57 @@ import tensorflow as tf
 from sklearn.decomposition import PCA
 
 from src.EncodingAttentionAutoEncoder.EncodingAttentionAutoEncoder import EncodingAttentionAutoEncoder
-from src.InputPipeline import InputPipeline
+from src.Utilities.InputPipeline import InputPipeline
 from src.SelfAttentionAutoEncoder.SelfAttentionAutoEncoder import SelfAttentionAutoEncoder
 from src.Utilities.ConvolutionBuilder import compute_convolutions
-from src.Utilities.GameOfLife2 import createTestSet, show
+from src.Utilities.GameOfLife2 import createTestSet
 from src.Utilities.TokenBuilder import createFullToken
-from src.Model import Model
 
 train_examples = createTestSet()
 
-"""
-d_model = 80
-model = Model(
-    shape=(None, 5, 5, 1, 1),
-    d_model=d_model,
-    num_convolutions=3,
-    num_heads=4,
-    encoder_specs=[
-        #  (dff, d_tar)
-        (112, 16),
-        (112, 6),
-    ],
-    num_layers_decoder=4,
-    dff_decoder=112,
-    max_length=22,
-    BATCH_SIZE=64,
-    dropout_rate=0.0,
-    PAD_TOKEN=-10,
-)
-"""
 SOS = createFullToken((5, 5, 1, 1), -1)
 EOS = createFullToken((5, 5, 1, 1), -2)
+
+paramter_shape = (5, 5, 2, 1)
+inp_shape = (None, 5, 5, 1, 1)
+
 input_pipeline = InputPipeline(
     BUFFER_SIZE=2000,
     BATCH_SIZE=2000,
-    shape=(None, 5, 5, 1, 1),
     max_length=22,
     SOS=SOS,
     EOS=EOS,
     PAD_TOKEN=-10,
 )
-"""
-orignalModel = Model(
-    shape=(None, 5, 5, 1, 1),
-    d_model=80,
-    num_convolutions=2,
-    num_heads=2,
-    encoder_specs=[
-        #  (dff, d_tar)
-        (224, 32),
-        (224, 16),
-        (224, 2),
-    ],
-    num_layers_decoder=2,
-    dff_decoder=112,
-    max_length=22,
-    BATCH_SIZE=1000,
-    dropout_rate=0.0,
-    PAD_TOKEN=-10,
-)
-"""
+set = input_pipeline.process(train_examples, paramter_shape=paramter_shape, inp_shape=inp_shape)
+
 selfAttentionAutoEncoder = SelfAttentionAutoEncoder(
-    voxel_shape=(5, 5, 1, 1),
-    d_model=81,
-    d_parameter=112,
-    seq_convolution=compute_convolutions(num_convolutions=2, voxel_shape=(5, 5, 1, 1), d_model=81,
-                                         convolution_scaling=1),
-    static_convolution=compute_convolutions(num_convolutions=2, voxel_shape=(5, 5, 2, 1), d_model=112,
-                                            convolution_scaling=1),
-    num_attention_layers=3, attention_dff=224,
-    num_decoder_layers=3, decoder_dff=224,
-    max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
-    rate=0.000)
-encodingAutoEncoder = EncodingAttentionAutoEncoder(
-    voxel_shape=(5, 5, 1, 1),
+    voxel_shape=inp_shape[1:],
     d_model=80,
-    seq_convolution=compute_convolutions(num_convolutions=3, voxel_shape=(5, 5, 1, 1), d_model=80,
-                                         convolution_scaling=2),
+    d_parameter=112,
+    seq_convolution=[dict(filters=64, kernel_size=[2, 2, 1], strides=2), dict(filters=32, kernel_size=[2, 2, 1], strides=2)],
+    static_convolution=[dict(filters=64, kernel_size=[2, 2, 1], strides=2), dict(filters=32, kernel_size=[2, 2, 1], strides=2)],
+    num_attention_layers=2, attention_dff=224,
+    num_decoder_layers=2, decoder_dff=224,
+    max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
+    rate=0.001)
+encodingAutoEncoder = EncodingAttentionAutoEncoder(
+    voxel_shape=inp_shape[1:],
+    d_model=80,
+    seq_convolution=[dict(filters=2, kernel_size=1, strides=1), dict(filters=2, kernel_size=1, strides=1)],
     # ([index: (dff, d_tar)])
     encoder_specs=[
         (112, 32),
         (112, 16),
-        (112, 16),
         (112, 2),
     ],
-    num_heads=4,
+    num_attention_layers=2, att_dff=224,
     num_layers_decoder=2, dff_decoder=224,
     max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
-    rate=0.000)
+    rate=0.001)
 
-set = input_pipeline.process(train_examples)
-# encodingAutoEncoder.train(set, 80000)
+encodingAutoEncoder.train(set, 80000)
 # selfAttentionAutoEncoder.train(set, 80000)
-# orignalModel.train(set, 80000)
 
 data = {}
 data[0] = []

@@ -5,12 +5,10 @@ import tensorflow as tf
 
 from src.Convolution import Convolution
 from src.ConvolutionOutput import ConvolutionOutput
-from src.Masks import create_look_ahead_mask, create_padding_mask
+from src.Utilities.Masks import create_look_ahead_mask, create_padding_mask
 from src.SelfAttentionAutoEncoder.SelfAttentionDecoder import SelfAttentionDecoder
 from src.Utilities.CustomSchedule import CustomSchedule
 from src.Utilities.TokenBuilder import createFullToken
-
-from src.Utilities.GameOfLife2 import createTestSet, show
 
 
 class SelfAttentionAutoEncoder(tf.keras.Model):
@@ -31,13 +29,13 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
         self.EOS = createFullToken(voxel_shape, EOS)
         self.PAD_TOKEN = PAD_TOKEN
 
-        self.input_convolution = Convolution(seq_convolution[0], d_model, rate)
+        self.input_convolution = Convolution(seq_convolution, d_model, rate)
 
-        self.output_convolution = ConvolutionOutput(reversed(seq_convolution[0]), seq_convolution[1], voxel_shape,
+        self.output_convolution = ConvolutionOutput(seq_convolution, voxel_shape,
                                                     decoder_dff,
                                                     rate)
 
-        self.parameter_convolution = Convolution(static_convolution[0], d_parameter, rate, time_distributed=False)
+        self.parameter_convolution = Convolution(static_convolution, d_parameter, rate, time_distributed=False)
 
         self.decoder = SelfAttentionDecoder(d_model,
                                             num_attention_layers, attention_dff,
@@ -70,16 +68,15 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
             print('Latest checkpoint restored!!')
 
     def call(self, inp, static, training, look_ahead_mask):
-        inp_embedding = self.input_convolution(inp, training=training)  # (batch_size, inp_seq_len - 1, d_model)
+        inp_embedding = self.input_convolution(inp, training=training)
 
         static = tf.repeat(tf.expand_dims(
             self.parameter_convolution(static, training=training)
             , axis=1), repeats=[inp.shape[1]], axis=1)
 
-        # dec_output.shape == (batch_size, tar_seq_len, d_model)
         dec_output, attention_weights = self.decoder(inp_embedding, static, training, look_ahead_mask)
 
-        final_output = self.output_convolution(dec_output)  # (batch_size, tar_seq_len, ...voxel_shape)
+        final_output = self.output_convolution(dec_output)
 
         return final_output, attention_weights
 
@@ -100,13 +97,9 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
 
         return
 
-    # @tf.function
     def evaluate(self, inp, static):
-        # adding the start and end token
         static = tf.expand_dims(static, axis=0)
 
-        # the first voxel to the transformer should be the
-        # start voxel.
         decoder_input = tf.expand_dims(tf.expand_dims(self.SOS, 0), 0)
         output = tf.cast(decoder_input, tf.float32)
 
@@ -115,21 +108,13 @@ class SelfAttentionAutoEncoder(tf.keras.Model):
             dec_target_padding_mask = create_padding_mask(output, self.PAD_TOKEN)
             combined_look_ahead_mask = tf.maximum(dec_target_padding_mask, look_ahead_mask)
 
-            # predictions.shape == (batch_size, seq_len, ...voxel_shape)
             predictions, attention_weights = self(output,
                                                   static,
                                                   False,
                                                   combined_look_ahead_mask)
 
-            # select the last voxel from the seq_len dimension
-            prediction = predictions[:, -1:, :]  # (batch_size, 1, ...voxel_shape)
+            prediction = predictions[:, -1:, :]
 
-            # return the result if the prediction is equal to the end token [TODO]
-            # if all(tf.math.equal(prediction[0][0], EOS)):
-            #    return tf.squeeze(output, axis=0), attention_weights
-
-            # concatentate the predicted_voxel to the output which is given to the decoder
-            # as its input.
             output = tf.concat([output, prediction], axis=1)
 
         return tf.squeeze(output, axis=0), attention_weights

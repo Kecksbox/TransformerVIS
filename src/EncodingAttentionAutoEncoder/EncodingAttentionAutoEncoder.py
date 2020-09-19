@@ -7,7 +7,7 @@ from src.Convolution import Convolution
 from src.ConvolutionOutput import ConvolutionOutput
 from src.EncodingAttentionAutoEncoder.Encoder import Encoder
 from src.Utilities.CustomSchedule import CustomSchedule
-from src.Masks import create_padding_mask
+from src.Utilities.Masks import create_padding_mask
 from src.EncodingAttentionAutoEncoder.EncodingAttentionDecoder import EncodingAttentionDecoder
 from src.Utilities.TokenBuilder import createFullToken
 
@@ -17,7 +17,8 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
                  seq_convolution,
                  # ([index: (d_inp, num_heads, dff, d_tar)])
                  encoder_specs,
-                 num_heads,
+                 num_attention_layers,
+                 att_dff,
                  num_layers_decoder, dff_decoder,
                  max_length, SOS, EOS, PAD_TOKEN,
                  beta_1=0.9, beta_2=0.98, epsilon=1e-9, warmup_steps=4000,
@@ -30,18 +31,18 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
         self.EOS = createFullToken(voxel_shape, EOS)
         self.PAD_TOKEN = PAD_TOKEN
 
-        self.input_convolution = Convolution(seq_convolution[0], d_model, rate)
+        self.input_convolution = Convolution(seq_convolution, d_model, rate)
 
-        self.output_convolution = ConvolutionOutput(reversed(seq_convolution[0]), seq_convolution[1], voxel_shape,
+        self.output_convolution = ConvolutionOutput(seq_convolution, voxel_shape,
                                                     dff_decoder,
                                                     rate)
 
-        self.encoder = Encoder(d_model, encoder_specs, num_heads, max_length, rate)
+        self.encoder = Encoder(d_model, encoder_specs, num_attention_layers, att_dff, max_length, rate)
 
-        self.decoder = EncodingAttentionDecoder(num_layers_decoder, d_model, num_heads, dff_decoder, max_length, rate)
+        self.decoder = EncodingAttentionDecoder(num_layers_decoder, d_model, dff_decoder, rate)
 
         self.loss_object = tf.keras.losses.MeanSquaredError(
-            reduction=tf.keras.losses.Reduction.NONE, name='mean_squared_error'
+            reduction=tf.keras.losses.Reduction.NONE
         )
         self.train_loss = tf.keras.metrics.Mean(name='train_loss')
 
@@ -66,19 +67,18 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
             print('Latest checkpoint restored!!')
 
     def call(self, inp, training, enc_padding_mask, dec_padding_mask):
-        inp_embedding = self.input_convolution(inp, training=training)  # (batch_size, inp_seq_len, d_model)
+        inp_embedding = self.input_convolution(inp, training=training)
 
         enc_output, attention_weights = self.encoder(inp_embedding, training,
-                                                     enc_padding_mask)  # (batch_size, inp_seq_len, d_latent)
+                                                     enc_padding_mask)
 
-        # dec_output.shape == (batch_size, tar_seq_len, d_model)
         dec_output = self.decoder(enc_output, training, dec_padding_mask)
 
-        final_output = self.output_convolution(dec_output)  # (batch_size, tar_seq_len, ...voxel_shape)
+        final_output = self.output_convolution(dec_output)
 
         return final_output, enc_output, attention_weights
 
-    @tf.function
+    # @tf.function
     def train_step(self, inp):
         tar_inp = inp[:, 1:-1]
         tar_real = inp[:, 1:-1]
@@ -93,10 +93,7 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
                                      dec_padding_mask)
             self.update(tar_real, predictions, tape)
 
-    # @tf.function
     def evaluate(self, input):
-        # adding the start and end token
-        # input = tf.concat([[self.SOS], input, [self.EOS]], 0)
 
         inp_sentence = input
         encoder_input = tf.expand_dims(inp_sentence, 0)
@@ -120,7 +117,7 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
             for (batch, (parameters, run)) in enumerate(train_dataset):
                 self.train_step(run)
 
-            if (epoch + 1) % 20 == 0:
+            if (epoch + 1) % 200 == 0:
                 ckpt_save_path = self.ckpt_manager.save()
                 print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                                     ckpt_save_path))

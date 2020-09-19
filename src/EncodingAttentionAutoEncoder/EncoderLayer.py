@@ -1,8 +1,7 @@
 import tensorflow as tf
 
-from src.MultiHeadAttention import MultiHeadAttention
-from src.PointWiseFeedForward import PointWiseFeedForward
-from src.GRUGate import GRUGate
+from src.Layer.PointWiseFeedForward import PointWiseFeedForward
+from src.Layer.GRUGate import GRUGate
 
 
 class EncoderLayer(tf.keras.layers.Layer):

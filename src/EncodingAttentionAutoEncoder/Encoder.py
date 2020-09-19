@@ -1,42 +1,20 @@
-import numpy as np
 import tensorflow as tf
 
+from src.Utilities.PositionalEncoding import positional_encoding
 from src.EncodingAttentionAutoEncoder.EncoderLayer import EncoderLayer
-from src.SelfAttentionAutoEncoder.SingleHeadAttention import SingleHeadAttention
-from src.PointWiseFeedForward import PointWiseFeedForward
-from src.GRUGate import GRUGate
-
-
-def get_angles(pos, i, d_model):
-    angle_rates = 1 / np.power(10000, (2 * (i // 2)) / np.float32(d_model))
-    return pos * angle_rates
-
-
-def positional_encoding(position, d_model):
-    angle_rads = get_angles(np.arange(position)[:, np.newaxis],
-                            np.arange(d_model)[np.newaxis, :],
-                            d_model)
-
-    # apply sin to even indices in the array; 2i
-    angle_rads[:, 0::2] = np.sin(angle_rads[:, 0::2])
-
-    # apply cos to odd indices in the array; 2i+1
-    angle_rads[:, 1::2] = np.cos(angle_rads[:, 1::2])
-
-    pos_encoding = angle_rads[np.newaxis, ...]
-
-    return tf.cast(pos_encoding, dtype=tf.float32)
+from src.Layer.SingleHeadAttention import SingleHeadAttention
+from src.Layer.GRUGate import GRUGate
 
 
 class Encoder(tf.keras.layers.Layer):
-    def __init__(self, d_model, encoder_specs, num_heads, maximum_position_encoding, rate=0.1):
+    def __init__(self, d_model, encoder_specs, num_attention_layers, att_dff, maximum_position_encoding, rate=0.1):
         super(Encoder, self).__init__()
 
         self.d_model = d_model
 
         self.pos_encoding = positional_encoding(maximum_position_encoding, self.d_model)
 
-        self.sha = SingleHeadAttention(d_model, 224, 3, rate)
+        self.sha = SingleHeadAttention(d_model, att_dff, num_attention_layers, rate)
 
         self.layernorm_att = tf.keras.layers.LayerNormalization(epsilon=1e-6)
 

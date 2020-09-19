@@ -1,10 +1,6 @@
-import math
-import operator
-from functools import reduce
-
 import tensorflow as tf
 
-from src.GRUGate import GRUGate
+from src.Layer.GRUGate import GRUGate
 
 
 class Convolution(tf.keras.layers.Layer):
@@ -23,10 +19,10 @@ class Convolution(tf.keras.layers.Layer):
                 self.conv_layers.append(
                     tf.keras.layers.TimeDistributed(
                         tf.keras.layers.Conv3D(
-                            filters=conv[0],
-                            kernel_size=conv[1],
-                            strides=conv[2],
-                            activation=conv[3],
+                            filters=conv['filters'],
+                            kernel_size=conv['kernel_size'],
+                            strides=conv['strides'],
+                            activation='relu',
                         )
                     )
                 )
@@ -37,10 +33,10 @@ class Convolution(tf.keras.layers.Layer):
             for conv in convolutions:
                 self.conv_layers.append(
                     tf.keras.layers.Conv3D(
-                        filters=conv[0],
-                        kernel_size=conv[1],
-                        strides=conv[2],
-                        activation=conv[3],
+                        filters=conv['filters'],
+                        kernel_size=conv['kernel_size'],
+                        strides=conv['strides'],
+                        activation='relu',
                     )
                 )
 
