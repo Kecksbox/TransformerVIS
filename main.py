@@ -2,26 +2,48 @@ import json
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
+import numpy as np
 from sklearn.decomposition import PCA
+
+tf.config.set_visible_devices([], 'GPU')
 
 from src.EncodingAttentionAutoEncoder.EncodingAttentionAutoEncoder import EncodingAttentionAutoEncoder
 from src.Utilities.InputPipeline import InputPipeline
 from src.SelfAttentionAutoEncoder.SelfAttentionAutoEncoder import SelfAttentionAutoEncoder
 from src.Utilities.ConvolutionBuilder import compute_convolutions
-from src.Utilities.GameOfLife2 import createTestSet
+from src.Utilities.GameOfLife2 import createTestSet, show
 from src.Utilities.TokenBuilder import createFullToken
+
+def createTestSet_internal():
+    np_path = "C:/Users/Malte Leonard Heuser/PycharmProjects/untitled/data/ensemble1_np/"
+    for i in range(1, 4):
+        yield (
+            tf.expand_dims(tf.expand_dims(tf.expand_dims(tf.constant(0, shape=(1,)), axis=-1), axis=-1), axis=-1),
+            tf.expand_dims(tf.expand_dims(np.load(np_path + "Sim_{}.npy".format(i)), axis=-1), axis=-1),
+        )
+
+
+def createTestSet():
+    return tf.data.Dataset.from_generator(
+        createTestSet_internal,
+        output_types=(tf.float32, tf.float32),
+        output_shapes=(tf.TensorShape([1, 1, 1, 1]), tf.TensorShape([None, 512, 512, 1, 1]))
+    )
+
 
 train_examples = createTestSet()
 
-SOS = createFullToken((5, 5, 1, 1), -1)
-EOS = createFullToken((5, 5, 1, 1), -2)
+size = 512
 
-paramter_shape = (5, 5, 2, 1)
-inp_shape = (None, 5, 5, 1, 1)
+SOS = createFullToken((size, size, 1, 1), -1)
+EOS = createFullToken((size, size, 1, 1), -2)
+
+paramter_shape = (size, size, 2, 1)
+inp_shape = (None, size, size, 1, 1)
 
 input_pipeline = InputPipeline(
-    BUFFER_SIZE=2000,
-    BATCH_SIZE=2000,
+    BUFFER_SIZE=3,
+    BATCH_SIZE=1,
     max_length=22,
     SOS=SOS,
     EOS=EOS,
@@ -29,6 +51,7 @@ input_pipeline = InputPipeline(
 )
 set = input_pipeline.process(train_examples, paramter_shape=paramter_shape, inp_shape=inp_shape)
 
+"""
 selfAttentionAutoEncoder = SelfAttentionAutoEncoder(
     voxel_shape=inp_shape[1:],
     d_model=80,
@@ -39,22 +62,24 @@ selfAttentionAutoEncoder = SelfAttentionAutoEncoder(
     num_decoder_layers=2, decoder_dff=224,
     max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
     rate=0.001)
+"""
 encodingAutoEncoder = EncodingAttentionAutoEncoder(
     voxel_shape=inp_shape[1:],
-    d_model=80,
-    seq_convolution=[dict(filters=2, kernel_size=1, strides=1), dict(filters=2, kernel_size=1, strides=1)],
+    d_model=224,
+    seq_convolution=[dict(filters=12, kernel_size=[32, 32, 1], strides=[16, 16, 1]), dict(filters=6, kernel_size=[3, 3, 1], strides=[2, 2, 1])],
     # ([index: (dff, d_tar)])
     encoder_specs=[
-        (112, 32),
-        (112, 16),
+        (448, 224),
+        (448, 112),
+        (224, 32),
         (112, 2),
     ],
-    num_attention_layers=2, att_dff=224,
-    num_layers_decoder=2, dff_decoder=224,
-    max_length=22, SOS=-1, EOS=-2, PAD_TOKEN=-10,
-    rate=0.001)
+    num_attention_layers=4, att_dff=448,
+    num_layers_decoder=4, dff_decoder=448,
+    max_length=102, SOS=-1, EOS=-2, PAD_TOKEN=-10,
+    rate=0.000)
 
-encodingAutoEncoder.train(set, 80000)
+# encodingAutoEncoder.train(set, 80000)
 # selfAttentionAutoEncoder.train(set, 80000)
 
 data = {}
@@ -69,10 +94,12 @@ for (parameters, run) in train_examples:
     encodingReconstruction, latent, encoding_attention_weights = encodingAutoEncoder.evaluate(
         run
     )
+    """
     selfAttentionReconstruction, self_attention_weights = selfAttentionAutoEncoder.evaluate(
         run, parameters
     )
 
+    """
     """
     reconstruction, latent, attention = orignalModel.evaluate(run)
     self_attention_weights = {}
@@ -85,13 +112,13 @@ for (parameters, run) in train_examples:
         else:
             encoding_attention_weights[key] = attention[key]
     """
-    data[0].append([selfAttentionReconstruction[1:-1], latent, [self_attention_weights, encoding_attention_weights]])
+    #data[0].append([selfAttentionReconstruction[1:-1], latent, [self_attention_weights, encoding_attention_weights]])
     test_latent.append(latent)
     # show(e[:1])
     # show(test[:1])
     # show(e[1:2])
     # show(test[1:2])
-    #show(run)
+    # show(run, 200, save=True)
     #show(reconstruction[1:-1])
     #show(encodingReconstruction)
     #show(selfAttentionReconstruction[1:-1])

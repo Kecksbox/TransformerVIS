@@ -33,7 +33,9 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
 
         self.input_convolution = Convolution(seq_convolution, d_model, rate)
 
-        self.output_convolution = ConvolutionOutput(seq_convolution, voxel_shape,
+        self.output_convolution = ConvolutionOutput(seq_convolution,
+                                                    voxel_shape,
+                                                    self.input_convolution.getTargetShape(voxel_shape),
                                                     dff_decoder,
                                                     rate)
 
@@ -78,7 +80,7 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
 
         return final_output, enc_output, attention_weights
 
-    # @tf.function
+    @tf.function
     def train_step(self, inp):
         tar_inp = inp[:, 1:-1]
         tar_real = inp[:, 1:-1]
@@ -117,7 +119,7 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
             for (batch, (parameters, run)) in enumerate(train_dataset):
                 self.train_step(run)
 
-            if (epoch + 1) % 200 == 0:
+            if (epoch + 1) % 100 == 0:
                 ckpt_save_path = self.ckpt_manager.save()
                 print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                                     ckpt_save_path))

@@ -7,7 +7,7 @@ from src.Layer.GRUGate import GRUGate
 
 
 class ConvolutionOutput(tf.keras.layers.Layer):
-    def __init__(self, convolutions, voxel_shape, dff_decoder, rate=0.1):
+    def __init__(self, convolutions, voxel_shape, target_shape, dff_decoder, rate=0.1):
         super(ConvolutionOutput, self).__init__()
 
         self.conv_layers = []
@@ -23,15 +23,18 @@ class ConvolutionOutput(tf.keras.layers.Layer):
                 )
             )
 
+        self.conv_layers.append(
+            tf.keras.layers.TimeDistributed(
+                tf.keras.layers.Conv3DTranspose(
+                    filters=voxel_shape[-1],
+                    kernel_size=1,
+                    strides=1,
+                    activation=None,
+                )
+            )
+        )
+
         self.flatten = tf.keras.layers.TimeDistributed(tf.keras.layers.Flatten())
-
-
-        target_shape = tf.constant(voxel_shape)[:-1]
-        filters = 0
-        for conv in convolutions:
-            filters = conv['filters']
-            target_shape = target_shape - (tf.cast(tf.constant(conv['kernel_size']) / tf.constant(conv['strides']), dtype=tf.int32)) + 1
-        target_shape = tf.concat([target_shape, [filters]], axis=0)
 
         self.reshape = tf.keras.layers.TimeDistributed(
             tf.keras.layers.Reshape(target_shape=target_shape))  # shape before flattend in the input convolution
@@ -44,6 +47,8 @@ class ConvolutionOutput(tf.keras.layers.Layer):
             tf.keras.layers.Dense(dff_decoder, activation='relu'),
             tf.keras.layers.Dense(reduce(operator.mul, target_shape, 1), activation=None)  # shape when flattend in the input convolution
         ])
+        self.dense_fit = tf.keras.layers.Dense(
+            reduce(operator.mul, voxel_shape, 1), activation=None)
 
         self.gru = GRUGate(reduce(operator.mul, voxel_shape, 1))
 

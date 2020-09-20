@@ -46,6 +46,13 @@ class Convolution(tf.keras.layers.Layer):
 
         self.dropout = tf.keras.layers.Dropout(rate)
 
+    def getTargetShape(self, voxel_shape):
+        test_tensor = tf.constant(0, shape=(1, 1, voxel_shape[0], voxel_shape[1], voxel_shape[2], voxel_shape[3]), dtype=tf.float32)
+        for conv_layer in self.conv_layers:
+            test_tensor = conv_layer(test_tensor)
+        target_shape = test_tensor.shape[2:]
+        return target_shape
+
     def call(self, x, training):
         residual = self.dense_r(self.flatten_r(x, training=training))
 

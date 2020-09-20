@@ -8,11 +8,13 @@ import tensorflow as tf
 seed(0)
 np.random.seed(0)
 
+size = 500
+
 class Game:
 
     def __init__(self, initPlayerPos):
         self.playerPos = initPlayerPos
-        self.satiety = 8
+        self.satiety = 6
         self.poisonCounter = -1
         self.appels = [
             (1, 4),
@@ -28,7 +30,7 @@ class Game:
         self.resort = (0, 0)
 
     def observe(self):
-        grid = np.zeros((5, 5))
+        grid = np.zeros((size, size))
 
         grid[self.grave[0], self.grave[1]] = 4
         grid[self.resort[0], self.resort[1]] = 5
@@ -73,7 +75,7 @@ class Game:
             if apple[0] == self.playerPos[0] and apple[1] == self.playerPos[1]:
                 # remove apple
                 self.appels.remove(apple)
-                self.satiety = 8
+                self.satiety = 6
 
         for apple in self.poisendAppels:
             if apple[0] == self.playerPos[0] and apple[1] == self.playerPos[1] and self.poisonCounter < 0:
@@ -89,8 +91,8 @@ def randomParameterGrid(N):
 
 def simulate(length):
     run = [None] * length
-    game = Game([randrange(5), randrange(5)])
-    paramterGrid = randomParameterGrid(5)
+    game = Game([randrange(size), randrange(size)])
+    paramterGrid = randomParameterGrid(size)
     initalState, _ = game.observe()
     for i in range(length):
         run[i], playerPos = game.observe()
@@ -108,7 +110,7 @@ def show_internal(frameNum, img, run):
     return img,
 
 
-def show(run, interval=200):
+def show(run, interval=200, save=False):
     updateInterval = int(interval)
 
     grid = tf.squeeze(run[0])
@@ -118,20 +120,24 @@ def show(run, interval=200):
     ani = animation.FuncAnimation(fig, show_internal, fargs=(img, run),
                                   frames=run.__len__(),
                                   interval=updateInterval,
-                                  save_count=50)
+                                  save_count=100)
 
     plt.show()
 
+    if save:
+        writergif = animation.PillowWriter(fps=15)
+        ani.save('lines.mp4', writer=writergif)
+
 
 def createTestSet_internal():
-    for _ in range(4000):
-        yield simulate(20)
+    for _ in range(3):
+        yield simulate(100)
 
 def createTestSet():
     return tf.data.Dataset.from_generator(
         createTestSet_internal,
         output_types=(tf.float32, tf.float32),
-        output_shapes=(tf.TensorShape([5, 5, 2, 1]), tf.TensorShape([None, 5, 5, 1, 1]))
+        output_shapes=(tf.TensorShape([size, size, 2, 1]), tf.TensorShape([None, size, size, 1, 1]))
     )
 
 
