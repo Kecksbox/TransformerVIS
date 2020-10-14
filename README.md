@@ -1,4 +1,4 @@
-# Die ofizelle Implementation von Transformer neural networks for the visual analysis of spatiotemporal ensembles
+# Transformer neural networks for the visual analysis of spatiotemporal ensembles - official implementation
 ![alt text]()
 
 ## Requirements
