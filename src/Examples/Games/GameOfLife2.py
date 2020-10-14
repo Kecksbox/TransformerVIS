@@ -104,29 +104,60 @@ def simulate(length):
         tf.expand_dims(tf.expand_dims(run, axis=-1), axis=-1),
     )
 
-def show_internal(frameNum, img, run):
-    new_grid = tf.squeeze(run[frameNum])
-    img.set_data(new_grid)
-    return img,
+def show_internal(frameNum, imges, runs, latents, latentplot):
+    for i in range(3):
+        # time_text.set_text('%.1d' % frameNum)
+        new_grid = tf.squeeze(runs[i][frameNum])
+        imges[i].set_data(new_grid)
+    latentplot.cla()
+    for latent in latents:
+        latent = tf.squeeze(latent, axis=0)
+        latentplot.plot(latent[:frameNum,1], latent[:frameNum,0])
 
+counter = 0
 
-def show(run, interval=200, save=False):
+def show(runs, latents, interval=200, save=False):
     updateInterval = int(interval)
 
-    grid = tf.squeeze(run[0])
+    fig = plt.figure(constrained_layout=True)
+    gs = fig.add_gridspec(3, 3)
+    colors = ['blue', 'orange', 'green']
+    images = []
+    for i in range(3):
+        ax = fig.add_subplot(gs[i, 0])
+        ax.get_yaxis().set_visible(False)
+        ax.get_xaxis().set_visible(False)
+        ax.patch.set_edgecolor(colors[i])
+        ax.patch.set_linewidth('4')
+        grid = tf.squeeze(runs[i][0])
+        #time_text = axes[i].text(0.05, 0.95, '', horizontalalignment='left', verticalalignment='top', transform=axes[i].transAxes)
+        #plt.setp(time_text, color='w')
+        img = ax.imshow(grid, interpolation='nearest')
+        images.append(img)
 
-    fig, ax = plt.subplots()
-    img = ax.imshow(grid, interpolation='nearest')
-    ani = animation.FuncAnimation(fig, show_internal, fargs=(img, run),
-                                  frames=run.__len__(),
+    ax = fig.add_subplot(gs[:, 1:])
+    ax.get_yaxis().set_visible(False)
+    ax.get_xaxis().set_visible(False)
+    latentplot = ax
+
+    for latent in latents:
+        latent = tf.squeeze(latent, axis=0)
+        latentplot.plot(latent[:0, 1], latent[:0, 0])
+
+    ani = animation.FuncAnimation(fig, show_internal, fargs=(images, runs, latents, latentplot),
+                                  frames=runs[0].__len__(),
                                   interval=updateInterval,
                                   save_count=100)
 
+    plt.tight_layout()
     plt.show()
 
     if save:
-        writergif = animation.PillowWriter(fps=15)
-        ani.save('lines.mp4', writer=writergif)
+        global counter
+        counter += 1
+        plt.rcParams['animation.ffmpeg_path'] = 'E:/Program Files (x86)/ffmpeg/bin/ffmpeg.exe'
+        mywriter = animation.FFMpegWriter()
+        ani.save('Animated_Sequence.mp4'.format(counter), writer=mywriter)
 
 
 def createTestSet_internal():

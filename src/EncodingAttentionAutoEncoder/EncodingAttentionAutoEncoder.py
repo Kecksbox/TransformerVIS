@@ -3,8 +3,8 @@ import time
 
 import tensorflow as tf
 
-from src.Convolution import Convolution
-from src.ConvolutionOutput import ConvolutionOutput
+from src.InputTransformations.Convolution import Convolution
+from src.InputTransformations.ConvolutionOutput import ConvolutionOutput
 from src.EncodingAttentionAutoEncoder.Encoder import Encoder
 from src.Utilities.CustomSchedule import CustomSchedule
 from src.Utilities.Masks import create_padding_mask
@@ -89,11 +89,11 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
         dec_padding_mask = enc_padding_mask
 
         with tf.GradientTape() as tape:
-            predictions, _, _ = self(tar_inp,
+            predictions, enc_output, _ = self(tar_inp,
                                      True,
                                      enc_padding_mask,
                                      dec_padding_mask)
-            self.update(tar_real, predictions, tape)
+            self.update(tar_real, predictions, enc_output, tape)
 
     def evaluate(self, input):
 
@@ -130,20 +130,29 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
                 with self.train_summary_writer.as_default():
                     tf.summary.scalar('loss', self.train_loss.result(), step=epoch)
 
-    def update(self, tar_real, predictions, tape):
-        loss = self.loss_function(tar_real, predictions)
+    def update(self, tar_real, predictions, enc_output, tape):
+        loss = self.loss_function(tar_real, predictions, enc_output)
 
         gradients = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 
-        self.train_loss(loss)
-
-    def loss_function(self, real, pred):
+    def loss_function(self, real, pred, enc_output):
         mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, self.PAD_TOKEN), [5, 4, 3, 2]))
 
         loss_ = tf.reduce_sum(self.loss_object(real, pred), [4, 3, 2])
+        loss_ += tf.reduce_sum(tf.math.abs(enc_output), axis=-1)
 
         mask = tf.cast(mask, dtype=loss_.dtype)
         loss_ *= mask
+        loss = tf.reduce_sum(loss_) / tf.reduce_sum(mask)
 
-        return tf.reduce_sum(loss_) / tf.reduce_sum(mask)
+        penalty = 0
+        for i in range(enc_output.shape[1]):
+            ord1dist = tf.reduce_sum(tf.norm(enc_output[:, :, :] - tf.expand_dims(enc_output[:, i, :], 1), ord=1, axis=1))
+            penalty += ord1dist * mask[:, i]
+
+        # l2 = tf.add_n([tf.nn.l2_loss(v) for v in self.trainable_variables if 'bias' not in v.name])
+
+        self.train_loss(loss)
+
+        return loss # + penalty
