@@ -146,13 +146,6 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
         loss_ *= mask
         loss = tf.reduce_sum(loss_) / tf.reduce_sum(mask)
 
-        penalty = 0
-        for i in range(enc_output.shape[1]):
-            ord1dist = tf.reduce_sum(tf.norm(enc_output[:, :, :] - tf.expand_dims(enc_output[:, i, :], 1), ord=1, axis=1))
-            penalty += ord1dist * mask[:, i]
-
-        # l2 = tf.add_n([tf.nn.l2_loss(v) for v in self.trainable_variables if 'bias' not in v.name])
-
         self.train_loss(loss)
 
-        return loss # + penalty
+        return loss
