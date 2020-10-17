@@ -1,4 +1,4 @@
-# Die ofizelle Implementation von Transformer neural networks for the visual analysis of spatiotemporal ensembles
+# Transformer neural networks for the visual analysis of spatiotemporal ensembles - official implementation
 ![alt text]()
 
 ## Requirements
@@ -10,4 +10,5 @@
 
 ## Examples
 
-Get started by running the gauss kernel example [here](https://github.com/Kecksbox/TransformerVIS/blob/master/main.py).
+Get started by running the gauss kernel example [here](https://github.com/Kecksbox/TransformerVIS/blob/master/src/Examples/GaussKernelTest.py). 
+You will need to download the corresponding dataset from [here](https://drive.google.com/file/d/1u0IXJhkeLjhZRXanoJMrcCJPsDTw5x2l/view) and copy it to ./src/Examples/Datasets. The first run should then lie under ./src/Examples/Datasets/ensemble1_np/Sim_1.npy.
