@@ -119,7 +119,7 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
             for (batch, (parameters, run)) in enumerate(train_dataset):
                 self.train_step(run)
 
-            if (epoch + 1) % 100 == 0:
+            if (epoch + 1) % 200 == 0:
                 ckpt_save_path = self.ckpt_manager.save()
                 print('Saving checkpoint for epoch {} at {}'.format(epoch + 1,
                                                                     ckpt_save_path))

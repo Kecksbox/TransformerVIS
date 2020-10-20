@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-tf.random.set_seed(1)
+tf.random.set_seed(0)
 # tf.config.set_visible_devices([], 'GPU')
 
 import numpy as np
@@ -15,6 +15,7 @@ EOS = createFullToken((size, size, 1, 1), -2)
 paramter_shape = (size, size, 2, 1)
 inp_shape = (None, size, size, 1, 1)
 
+
 def createTestSet_internal():
     np_path = "./Datasets/ensemble1_np/"
     for i in range(1, 4):
@@ -23,12 +24,14 @@ def createTestSet_internal():
             tf.expand_dims(tf.expand_dims(np.load(np_path + "Sim_{}.npy".format(i)), axis=-1), axis=-1),
         )
 
+
 def createTestSet():
     return tf.data.Dataset.from_generator(
         createTestSet_internal,
         output_types=(tf.float32, tf.float32),
         output_shapes=(tf.TensorShape([1, 1, 1, 1]), tf.TensorShape([None, size, size, 1, 1]))
     )
+
 
 train_examples = createTestSet()
 
@@ -45,7 +48,12 @@ set = input_pipeline.process(train_examples, paramter_shape=paramter_shape, inp_
 encodingAutoEncoder = EncodingAttentionAutoEncoder(
     voxel_shape=inp_shape[1:],
     d_model=112,
-    seq_convolution=[dict(filters=6, kernel_size=[32, 32, 1], strides=[16, 16, 1]), dict(filters=12, kernel_size=[3, 3, 1], strides=[2, 2, 1])],
+    seq_convolution=[
+        dict(filters=2, kernel_size=[6, 6, 1], strides=[2, 2, 1]),
+        dict(filters=4, kernel_size=[6, 6, 1], strides=[2, 2, 1]),
+        dict(filters=4, kernel_size=[9, 9, 1], strides=[2, 2, 1]),
+        dict(filters=6, kernel_size=[6, 6, 1], strides=[1, 1, 1])
+    ],
     # ([index: (dff, d_tar)])
     encoder_specs=[
         (112, 112),
@@ -53,8 +61,8 @@ encodingAutoEncoder = EncodingAttentionAutoEncoder(
         (112, 32),
         (112, 2),
     ],
-    num_attention_layers=2, att_dff=112,
-    num_layers_decoder=2, dff_decoder=112,
+    num_attention_layers=3, att_dff=112,
+    num_layers_decoder=3, dff_decoder=112,
     max_length=102, SOS=-1, EOS=-2, PAD_TOKEN=-10,
     rate=0.000
 )
