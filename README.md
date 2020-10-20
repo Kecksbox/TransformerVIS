@@ -1,5 +1,5 @@
 # Transformer neural networks for the visual analysis of spatiotemporal ensembles - official implementation
-![alt text]()
+![alt text](https://github.com/Kecksbox/TransformerVIS/blob/master/animated_sequence_gauss.gif)
 
 ## Requirements
 
