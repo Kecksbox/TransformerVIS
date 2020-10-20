@@ -89,11 +89,11 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
         dec_padding_mask = enc_padding_mask
 
         with tf.GradientTape() as tape:
-            predictions, enc_output, _ = self(tar_inp,
+            predictions, _, _ = self(tar_inp,
                                      True,
                                      enc_padding_mask,
                                      dec_padding_mask)
-            self.update(tar_real, predictions, enc_output, tape)
+            self.update(tar_real, predictions, tape)
 
     def evaluate(self, input):
 
@@ -130,22 +130,20 @@ class EncodingAttentionAutoEncoder(tf.keras.Model):
                 with self.train_summary_writer.as_default():
                     tf.summary.scalar('loss', self.train_loss.result(), step=epoch)
 
-    def update(self, tar_real, predictions, enc_output, tape):
-        loss = self.loss_function(tar_real, predictions, enc_output)
+    def update(self, tar_real, predictions, tape):
+        loss = self.loss_function(tar_real, predictions)
 
         gradients = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
 
-    def loss_function(self, real, pred, enc_output):
+        self.train_loss(loss)
+
+    def loss_function(self, real, pred):
         mask = tf.math.logical_not(tf.reduce_all(tf.math.equal(real, self.PAD_TOKEN), [5, 4, 3, 2]))
 
         loss_ = tf.reduce_sum(self.loss_object(real, pred), [4, 3, 2])
-        loss_ += tf.reduce_sum(tf.math.abs(enc_output), axis=-1)
 
         mask = tf.cast(mask, dtype=loss_.dtype)
         loss_ *= mask
-        loss = tf.reduce_sum(loss_) / tf.reduce_sum(mask)
 
-        self.train_loss(loss)
-
-        return loss
+        return tf.reduce_sum(loss_) / tf.reduce_sum(mask)

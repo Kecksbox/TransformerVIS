@@ -45,7 +45,7 @@ set = input_pipeline.process(train_examples, paramter_shape=paramter_shape, inp_
 encodingAutoEncoder = EncodingAttentionAutoEncoder(
     voxel_shape=inp_shape[1:],
     d_model=112,
-    seq_convolution=[dict(filters=12, kernel_size=[32, 32, 1], strides=[16, 16, 1]),dict(filters=6, kernel_size=[3, 3, 1], strides=[2, 2, 1])],
+    seq_convolution=[dict(filters=6, kernel_size=[32, 32, 1], strides=[16, 16, 1]), dict(filters=12, kernel_size=[3, 3, 1], strides=[2, 2, 1])],
     # ([index: (dff, d_tar)])
     encoder_specs=[
         (112, 112),
