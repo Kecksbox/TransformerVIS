@@ -47,21 +47,16 @@ set = input_pipeline.process(train_examples, paramter_shape=paramter_shape, inp_
 
 encodingAutoEncoder = EncodingAttentionAutoEncoder(
     voxel_shape=inp_shape[1:],
-    d_model=224,
-    seq_convolution=[
-        dict(filters=6, kernel_size=[12, 12, 1], strides=[4, 4, 1]),
-        dict(filters=12, kernel_size=[9, 9, 1], strides=[3, 3, 1]),
-        dict(filters=24, kernel_size=[6, 6, 1], strides=[2, 2, 1]),
-    ],
+    d_model=112,
+    seq_convolution=[dict(filters=6, kernel_size=[32, 32, 1], strides=[16, 16, 1]), dict(filters=4, kernel_size=[6, 6, 1], strides=[5, 5, 1])],
     # ([index: (dff, d_tar)])
     encoder_specs=[
         (112, 112),
         (112, 60),
-        (112, 32),
         (112, 2),
     ],
-    num_attention_layers=3, att_dff=224,
-    num_layers_decoder=3, dff_decoder=224,
+    num_attention_layers=4, att_dff=112,
+    num_layers_decoder=4, dff_decoder=112,
     max_length=102, SOS=-1, EOS=-2, PAD_TOKEN=-10,
     rate=0.000
 )
